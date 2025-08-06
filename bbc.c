@@ -91,7 +91,7 @@ void print_bitboard(U64 bitboard) {
 /**********************************\
  ==================================
  
-               Attacks
+              Attacks
  
  ==================================
 \**********************************/
@@ -168,6 +168,9 @@ const U64 not_ab_file = 18229723555195321596ULL;
 // pawn attacks table [side][square]
 U64 pawn_attacks[2][64];
 
+// knight attacks table [square]
+U64 knight_attacks[64];
+
 // generate pawn attacks
 U64 mask_pawn_attacks(int side, int square) {
     // result attacks bitboard
@@ -178,7 +181,6 @@ U64 mask_pawn_attacks(int side, int square) {
 
     // set piece on board
     set_bit(bitboard, square);
-    print_bitboard(bitboard);
 
     if (!side) {
         // white pawns
@@ -199,8 +201,30 @@ U64 mask_pawn_attacks(int side, int square) {
         }
     }
 
-    
+    // return attack map
+    return attacks;
+}
 
+// generate knight attacks
+U64 mask_knight_attacks(int square) {
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+
+    // piece bitboard
+    U64 bitboard = 0ULL;
+
+    // set piece on board
+    set_bit(bitboard, square);
+
+    // generate knight attacks
+    if ((bitboard >> 17) & not_h_file) attacks |= (bitboard >> 17);
+    if ((bitboard >> 15) & not_a_file) attacks |= (bitboard >> 15);
+    if ((bitboard >> 10) & not_hg_file) attacks |= (bitboard >> 10);
+    if ((bitboard >> 6) & not_ab_file) attacks |= (bitboard >> 6);
+    if ((bitboard << 17) & not_a_file) attacks |= (bitboard << 17);
+    if ((bitboard << 15) & not_h_file) attacks |= (bitboard << 15);
+    if ((bitboard << 10) & not_ab_file) attacks |= (bitboard << 10);
+    if ((bitboard << 6) & not_hg_file) attacks |= (bitboard << 6);
 
     // return attack map
     return attacks;
@@ -213,6 +237,9 @@ void init_leapers_attacks() {
         // init pawn attacks
         pawn_attacks[white][square] = mask_pawn_attacks(white, square);
         pawn_attacks[black][square] = mask_pawn_attacks(black, square);
+
+        // init knight attacks
+        knight_attacks[square] = mask_knight_attacks(square);
     }
 }
 
@@ -229,10 +256,11 @@ int main() {
     init_leapers_attacks();
 
     // loop over 64 board squares
-    for (int square = 0; square < 64; square++)
-        print_bitboard(pawn_attacks[white][square]);
+    // for (int square = 0; square < 64; square++)
+    //     print_bitboard(pawn_attacks[white][square]);
 
     // print_bitboard(mask_pawn_attacks(white, a4));
+    print_bitboard(mask_knight_attacks(e4));
     
     return 0;
 }
