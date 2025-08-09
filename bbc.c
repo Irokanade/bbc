@@ -320,6 +320,98 @@ U64 mask_rook_attacks(int square) {
     return attacks;
 }
 
+// generate bishop attacks on the fly
+U64 bishop_attacks_on_the_fly(int square, U64 block) {
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+    
+    // init ranks & files
+    int r;
+    int f;
+    
+    // init target rank & files
+    int tr = square / 8;
+    int tf = square % 8;
+    
+    // generate bishop atacks
+    for (r = tr + 1, f = tf + 1; r <= 7 && f <= 7; r++, f++) {
+        attacks |= (1ULL << (r * 8 + f));
+        if ((1ULL << (r * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    for (r = tr - 1, f = tf + 1; r >= 0 && f <= 7; r--, f++) {
+        attacks |= (1ULL << (r * 8 + f));
+        if ((1ULL << (r * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    for (r = tr + 1, f = tf - 1; r <= 7 && f >= 0; r++, f--) {
+        attacks |= (1ULL << (r * 8 + f));
+        if ((1ULL << (r * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    for (r = tr - 1, f = tf - 1; r >= 0 && f >= 0; r--, f--) {
+        attacks |= (1ULL << (r * 8 + f));
+        if ((1ULL << (r * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    // return attack map
+    return attacks;
+}
+
+// generate rook attacks on the fly
+U64 rook_attacks_on_the_fly(int square, U64 block) {
+    // result attacks bitboard
+    U64 attacks = 0ULL;
+    
+    // init ranks & files
+    int r;
+    int f;
+    
+    // init target rank & files
+    int tr = square / 8;
+    int tf = square % 8;
+    
+    // generate rook attacks
+    for (r = tr + 1; r <= 7; r++) {
+        attacks |= (1ULL << (r * 8 + tf));
+        if ((1ULL << (r * 8 + tf)) & block) {
+            break;
+        }
+    }
+    
+    for (r = tr - 1; r >= 0; r--) {
+        attacks |= (1ULL << (r * 8 + tf));
+        if ((1ULL << (r * 8 + tf)) & block) {
+            break;
+        }
+    }
+    
+    for (f = tf + 1; f <= 7; f++) {
+        attacks |= (1ULL << (tr * 8 + f));
+        if ((1ULL << (tr * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    for (f = tf - 1; f >= 0; f--) {
+        attacks |= (1ULL << (tr * 8 + f));
+        if ((1ULL << (tr * 8 + f)) & block) {
+            break;
+        }
+    }
+    
+    // return attack map
+    return attacks;
+}
+
 // init leaper pieces attacks
 void init_leapers_attacks() {
     // loop over 64 board squares
@@ -348,12 +440,14 @@ int main() {
     // init leaper pieces attacks
     init_leapers_attacks();
 
-    // loop over 64 board squares
-    for (int square = 0; square < 64; square++)
-        print_bitboard(mask_rook_attacks(square));
+    // init occupancy bitboards
+    U64 block = 0ULL;
+    set_bit(block, b7);
+    set_bit(block, d4);
+    print_bitboard(block);
 
-    // print_bitboard(mask_pawn_attacks(white, a4));
-    // print_bitboard(mask_knight_attacks(e4));
+    // print_bitboard(bishop_attacks_on_the_fly(e4, block));
+    print_bitboard(rook_attacks_on_the_fly(e4, block));
     
     return 0;
 }
