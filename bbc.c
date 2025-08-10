@@ -56,6 +56,24 @@ enum { white, black };
 #define get_bit(bitboard, square) (bitboard & (1ULL << square))
 #define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
 
+// count bits within a bitboard (Brian Kernighan's way)
+static inline int count_bits(U64 bitboard) {
+    // bit counter
+    int count = 0;
+    
+    // consecutively reset least significant 1st bit
+    while (bitboard) {
+        // increment count
+        ++count;
+        
+        // reset least significant 1st bit
+        bitboard &= bitboard - 1;
+    }
+    
+    // return bit count
+    return count;
+}
+
 // print bitboard
 void print_bitboard(U64 bitboard) {
     printf("\n");
