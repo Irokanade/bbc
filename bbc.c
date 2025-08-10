@@ -89,6 +89,13 @@ static inline int get_ls1b_index(U64 bitboard) {
     }
 }
 
+/**********************************\
+ ==================================
+ 
+           Input & Output
+ 
+ ==================================
+\**********************************/
 
 // print bitboard
 void print_bitboard(U64 bitboard) {
@@ -462,6 +469,30 @@ void init_leapers_attacks() {
     }
 }
 
+// set occupancies
+U64 set_occupancy(int index, int bits_in_mask, U64 attack_mask) {
+    // occupancy map
+    U64 occupancy = 0ULL;
+    
+    // loop over the range of bits within attack mask
+    for (int count = 0; count < bits_in_mask; ++count) {
+        // get LS1B index of attacks mask
+        int square = get_ls1b_index(attack_mask);
+        
+        // pop LS1B in attack map
+        pop_bit(attack_mask, square);
+        
+        // make sure occupancy is on board
+        if (index & (1 << count)) {
+            // populate occupancy map
+            occupancy |= (1ULL << square);
+        }
+    }
+    
+    // return occupancy map
+    return occupancy;
+}
+
 /**********************************\
  ==================================
  
@@ -474,14 +505,14 @@ int main() {
     // init leaper pieces attacks
     init_leapers_attacks();
 
-    // init occupancy bitboards
-    U64 block = 0ULL;
-    set_bit(block, b7);
-    set_bit(block, d4);
-    print_bitboard(block);
+    // mask piece attacks at given square
+    U64 attack_masks = mask_rook_attacks(a1);
 
-    // print_bitboard(bishop_attacks_on_the_fly(e4, block));
-    print_bitboard(rook_attacks_on_the_fly(e4, block));
+
+    // init occupancy
+    U64 occupancy = set_occupancy(4095, count_bits(attack_masks), attack_masks);
+
+    print_bitboard(occupancy);
     
     return 0;
 }
