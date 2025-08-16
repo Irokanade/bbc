@@ -1267,23 +1267,10 @@ static inline U64 get_queen_attacks(int square, U64 occupancy) {
 /**********************************\
  ==================================
  
-              Init all
+           Move generator
  
  ==================================
 \**********************************/
-
-// init all variables
-void init_all() {
-    // init leaper pieces attacks
-    init_leapers_attacks();
-
-    // init slider pieces attacks
-    init_sliders_attacks(bishop);
-    init_sliders_attacks(rook);
-    
-    // init magic numbers
-    // init_magic_numbers();
-}
 
 // is square current given attacked by the current given side
 static inline int is_square_attacked(int square, int side) {
@@ -1352,6 +1339,62 @@ void print_attacked_squares(int side) {
     
     // print files
     printf("\n     a b c d e f g h\n\n");
+}
+
+// generate all moves
+static inline void generate_moves() {
+    // define source & target squares
+    int source_square;
+    int target_square;
+    
+    // define current piece's bitboard copy & it's attacks
+    U64 bitboard;
+    U64 attacks;
+    
+    // loop over all the bitboards
+    for (int piece = P; piece <= k; ++piece) {
+        // init piece bitboard copy
+        bitboard = bitboards[piece];
+        
+        // generate white pawns & white king castling moves
+        if (side == white) {
+        
+        } else {
+            // generate black pawns & black king castling moves
+            
+        }
+        
+        // genarate knight moves
+        
+        // generate bishop moves
+        
+        // generate rook moves
+        
+        // generate queen moves
+        
+        // generate king moves
+    }
+}
+
+/**********************************\
+ ==================================
+ 
+              Init all
+ 
+ ==================================
+\**********************************/
+
+// init all variables
+void init_all() {
+    // init leaper pieces attacks
+    init_leapers_attacks();
+
+    // init slider pieces attacks
+    init_sliders_attacks(bishop);
+    init_sliders_attacks(rook);
+    
+    // init magic numbers
+    // init_magic_numbers();
 }
 
 /**********************************\
