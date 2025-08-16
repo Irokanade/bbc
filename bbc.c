@@ -1285,6 +1285,75 @@ void init_all() {
     // init_magic_numbers();
 }
 
+// is square current given attacked by the current given side
+static inline int is_square_attacked(int square, int side) {
+    // attacked by white pawns
+    if ((side == white) && (pawn_attacks[black][square] & bitboards[P])) {
+        return 1;
+    }
+    
+    // attacked by black pawns
+    if ((side == black) && (pawn_attacks[white][square] & bitboards[p])) {
+        return 1;
+    }
+    
+    // attacked by knights
+    if (knight_attacks[square] & ((side == white) ? bitboards[N] : bitboards[n])) {
+        return 1;
+    }
+    
+    // attacked by bishops
+    if (get_bishop_attacks(square, occupancies[both]) & ((side == white) ? bitboards[B] : bitboards[b])) {
+        return 1;
+    }
+
+    // attacked by rooks
+    if (get_rook_attacks(square, occupancies[both]) & ((side == white) ? bitboards[R] : bitboards[r])) {
+        return 1;
+    }
+
+    // attacked by bishops
+    if (get_queen_attacks(square, occupancies[both]) & ((side == white) ? bitboards[Q] : bitboards[q])) {
+        return 1;
+    }
+    
+    // attacked by kings
+    if (king_attacks[square] & ((side == white) ? bitboards[K] : bitboards[k])) {
+        return 1;
+    }
+
+    // by default return false
+    return 0;
+}
+
+// print attacked squares
+void print_attacked_squares(int side) {
+    printf("\n");
+    
+    // loop over board ranks
+    for (int rank = 0; rank < 8; ++rank) {
+        // loop over board files
+        for (int file = 0; file < 8; ++file) {
+            // init square
+            int square = rank * 8 + file;
+            
+            // print ranks
+            if (!file) {
+                printf("  %d ", 8 - rank);
+            }
+            
+            // check whether current square is attacked or not
+            printf(" %d", is_square_attacked(square, side) ? 1 : 0);
+        }
+        
+        // print new line every rank
+        printf("\n");
+    }
+    
+    // print files
+    printf("\n     a b c d e f g h\n\n");
+}
+
 /**********************************\
  ==================================
  
@@ -1297,35 +1366,12 @@ int main() {
     // init all
     init_all();
     
-    // parse fen
-    parse_fen("r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 w q a3 0 9 ");
-    
-    // print chess board
+     // parse custom FEN string
+    parse_fen(tricky_position);
     print_board();
 
-    
-    // parse fen
-    parse_fen(start_position);
-    
-    // print chess board
-    print_board();
-    
-    
-    // parse fen
-    parse_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b Kk e6 0 1 ");
-    
-    // print chess board
-    print_board();
-
-    
-    // print black occupancies
-    print_bitboard(occupancies[black]);
-    
-    // print white occupancies
-    print_bitboard(occupancies[white]);
-    
-    // print all occupancies
-    print_bitboard(occupancies[both]);
+    // print all attacked squares on the chess board
+    print_attacked_squares(white);
     
     return 0;
 }
