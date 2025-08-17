@@ -1553,14 +1553,167 @@ static inline void generate_moves() {
         }
         
         // genarate knight moves
+        if ((side == white) ? piece == N : piece == n) {
+            // loop over source squares of piece bitboard copy
+            while (bitboard) {
+                // init source square
+                source_square = get_ls1b_index(bitboard);
+                
+                // init piece attacks in order to get set of target squares
+                attacks = knight_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
+                
+                // loop over target squares available from generated attacks
+                while (attacks) {
+                    // init target square
+                    target_square = get_ls1b_index(attacks);    
+                    
+                    // quite move
+                    if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square)) {
+                        printf("%s%s  piece quiet move\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    } else {
+                        // capture move
+                        printf("%s%s  piece capture\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    }
+                    
+                    // pop ls1b in current attacks set
+                    pop_bit(attacks, target_square);
+                }
+                
+                
+                // pop ls1b of the current piece bitboard copy
+                pop_bit(bitboard, source_square);
+            }
+        }
         
         // generate bishop moves
+        if ((side == white) ? piece == B : piece == b) {
+            // loop over source squares of piece bitboard copy
+            while (bitboard) {
+                // init source square
+                source_square = get_ls1b_index(bitboard);
+                
+                // init piece attacks in order to get set of target squares
+                attacks = get_bishop_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
+                
+                // loop over target squares available from generated attacks
+                while (attacks) {
+                    // init target square
+                    target_square = get_ls1b_index(attacks);    
+                    
+                    // quite move
+                    if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square)) {
+                        printf("%s%s  piece quiet move\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    
+                    } else {
+                        // capture move
+                        printf("%s%s  piece capture\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    }
+
+                    // pop ls1b in current attacks set
+                    pop_bit(attacks, target_square);
+                }
+                
+                // pop ls1b of the current piece bitboard copy
+                pop_bit(bitboard, source_square);
+            }
+        }
         
         // generate rook moves
+        if ((side == white) ? piece == R : piece == r) {
+            // loop over source squares of piece bitboard copy
+            while (bitboard) {
+                // init source square
+                source_square = get_ls1b_index(bitboard);
+                
+                // init piece attacks in order to get set of target squares
+                attacks = get_rook_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
+                
+                // loop over target squares available from generated attacks
+                while (attacks) {
+                    // init target square
+                    target_square = get_ls1b_index(attacks);    
+                    
+                    // quite move
+                    if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square)) {
+                        printf("%s%s  piece quiet move\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    } else {
+                        // capture move
+                        printf("%s%s  piece capture\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    }
+                    
+                    // pop ls1b in current attacks set
+                    pop_bit(attacks, target_square);
+                }
+                
+                
+                // pop ls1b of the current piece bitboard copy
+                pop_bit(bitboard, source_square);
+            }
+        }
         
         // generate queen moves
+        if ((side == white) ? piece == Q : piece == q) {
+            // loop over source squares of piece bitboard copy
+            while (bitboard) {
+                // init source square
+                source_square = get_ls1b_index(bitboard);
+                
+                // init piece attacks in order to get set of target squares
+                attacks = get_queen_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
+                
+                // loop over target squares available from generated attacks
+                while (attacks) {
+                    // init target square
+                    target_square = get_ls1b_index(attacks);    
+                    
+                    // quite move
+                    if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square)) {
+                        printf("%s%s  piece quiet move\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    } else {
+                        // capture move
+                        printf("%s%s  piece capture\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    }
+
+                    // pop ls1b in current attacks set
+                    pop_bit(attacks, target_square);
+                }
+                
+                // pop ls1b of the current piece bitboard copy
+                pop_bit(bitboard, source_square);
+            }
+        }
         
         // generate king moves
+        if ((side == white) ? piece == K : piece == k) {
+            // loop over source squares of piece bitboard copy
+            while (bitboard) {
+                // init source square
+                source_square = get_ls1b_index(bitboard);
+                
+                // init piece attacks in order to get set of target squares
+                attacks = king_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
+                
+                // loop over target squares available from generated attacks
+                while (attacks) {
+                    // init target square
+                    target_square = get_ls1b_index(attacks);    
+                    
+                    // quite move
+                    if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square)) {
+                        printf("%s%s  piece quiet move\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    } else {
+                        // capture move
+                        printf("%s%s  piece capture\n", square_to_coordinates[source_square], square_to_coordinates[target_square]);
+                    
+                    }
+                    // pop ls1b in current attacks set
+                    pop_bit(attacks, target_square);
+                }
+
+                // pop ls1b of the current piece bitboard copy
+                pop_bit(bitboard, source_square);
+            }
+        }
     }
 }
 
