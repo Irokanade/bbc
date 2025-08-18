@@ -1466,6 +1466,20 @@ void print_move_list(moves *move_list) {
     printf("\n\n    Total number of moves: %d\n\n", move_list->count);
 }
 
+// preserve board state
+#define copy_board()                                                      \
+    U64 bitboards_copy[12], occupancies_copy[3];                          \
+    int side_copy, enpassant_copy, castle_copy;                           \
+    memcpy(bitboards_copy, bitboards, 96);                                \
+    memcpy(occupancies_copy, occupancies, 24);                            \
+    side_copy = side, enpassant_copy = enpassant, castle_copy = castle;   \
+
+// restore board state
+#define take_back()                                                       \
+    memcpy(bitboards, bitboards_copy, 96);                                \
+    memcpy(occupancies, occupancies_copy, 24);                            \
+    side = side_copy, enpassant = enpassant_copy, castle = castle_copy;   \
+
 // generate all moves
 static inline void generate_moves(moves *move_list) {
     // init move count
@@ -1888,6 +1902,18 @@ int main() {
     
     // print move list
     print_move_list(&move_list);
+
+    // preserve board state
+    copy_board();
+    
+    // parse fen
+    parse_fen(empty_board);
+    print_board();
+    
+    // restore board state
+    take_back();
+
+    print_board();
     
     return 0;
 }
