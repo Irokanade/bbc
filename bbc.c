@@ -1539,6 +1539,17 @@ static inline int make_move(int move, int move_flag) {
             // set up promoted piece on chess board
             set_bit(bitboards[promoted_piece], target_square);
         }
+
+        // handle enpassant captures
+        if (enpass) {
+            // erase the pawn depending on side to move
+            (side == white) ? pop_bit(bitboards[p], target_square + 8) :
+                              pop_bit(bitboards[P], target_square - 8);
+        }
+        
+        // reset enpassant square
+        enpassant = no_sq;
+        
     } else {
         // capture moves
         // make sure move is the capture
