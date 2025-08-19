@@ -1549,7 +1549,14 @@ static inline int make_move(int move, int move_flag) {
         
         // reset enpassant square
         enpassant = no_sq;
-        
+
+        // handle double pawn push
+        if (double_push) {
+            // set enpassant aquare depending on side to move
+            (side == white) ? (enpassant = target_square + 8) :
+                              (enpassant = target_square - 8);
+        }
+
     } else {
         // capture moves
         // make sure move is the capture
