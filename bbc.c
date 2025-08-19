@@ -1641,11 +1641,27 @@ static inline int make_move(int move, int move_flag) {
         occupancies[both] |= occupancies[white];
         occupancies[both] |= occupancies[black];
 
+         // change side
+        side ^= 1;
+        
+        // make sure that king has not been exposed into a check
+        if (is_square_attacked((side == white) ? get_ls1b_index(bitboards[k]) : get_ls1b_index(bitboards[K]), side)) {
+            // take move back
+            take_back();
+            
+            // return illegal move
+            return 0;
+        } else {
+            // return legal move
+            return 1;
+        }
+
     } else {
         // capture moves
         // make sure move is the capture
         if (get_move_capture(move)) {
             make_move(move, all_moves);
+            return 0;
         } else {
             // otherwise the move is not a capture
             // don't make it
@@ -2076,20 +2092,25 @@ int main() {
     
     // loop over generated moves
     for (int move_count = 0; move_count < move_list.count; ++move_count) {
-        // init move
+         // init move
         int move = move_list.moves[move_count];
         
         // preserve board state
         copy_board();
         
         // make move
-        make_move(move, all_moves);
+        if (!make_move(move, all_moves)) {
+            // skip to the next move
+            continue;
+        }
+        
         print_board();
         getchar();
         
         // take back
         take_back();
         print_board();
+        
         getchar();
     }
     
