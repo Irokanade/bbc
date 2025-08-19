@@ -1494,7 +1494,7 @@ static inline int make_move(int move, int move_flag) {
         int source_square = get_move_source(move);
         int target_square = get_move_target(move);
         int piece = get_move_piece(move);
-        int promoted = get_move_promoted(move);
+        int promoted_piece = get_move_promoted(move);
         int capture = get_move_capture(move);
         int double_push = get_move_double(move);
         int enpass = get_move_enpassant(move);
@@ -1505,7 +1505,7 @@ static inline int make_move(int move, int move_flag) {
         set_bit(bitboards[piece], target_square);
 
         // handling capture moves
-        if (get_move_capture(move)) {
+        if (capture) {
             // pick up bitboard piece index ranges depending on side
             int start_piece;
             int end_piece;
@@ -1529,6 +1529,15 @@ static inline int make_move(int move, int move_flag) {
                     break;
                 }
             }
+        }
+
+        // handle pawn promotions
+        if (promoted_piece) {
+            // erase the pawn from the target square
+            pop_bit(bitboards[(side == white) ? P : p], target_square);
+            
+            // set up promoted piece on chess board
+            set_bit(bitboards[promoted_piece], target_square);
         }
     } else {
         // capture moves
