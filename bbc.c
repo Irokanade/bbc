@@ -232,7 +232,7 @@ int side = -1;
 int enpassant = no_sq; 
 
 // castling rights
-int castle = 0;
+int castle;
 
 /**********************************\
  ==================================
@@ -2091,45 +2091,60 @@ int get_time_ms() {
     #endif
 }
 
-int main() {
-     // parse fen
-    parse_fen("r3k2r/p1ppRpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
-    print_board();
+// leaf nodes (number of positions reached during the test of the move generator at a given depth)
+long nodes = 0;
 
+// perft driver
+static inline void perft_driver(int depth) {
+    // reccursion escape condition
+    if (depth == 0) {
+        // increment nodes count (count reached positions)
+        ++nodes;
+        return;
+    }
+    
     // create move list instance
-    moves move_list[1];
+    moves move_list;
     
     // generate moves
-    generate_moves(move_list);
-    
-    // start tracking time
-    int start = get_time_ms();
+    generate_moves(&move_list);
     
     // loop over generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++) {
-        // init move
-        int move = move_list->moves[move_count];
-        
+    for (int move_count = 0; move_count < move_list.count; ++move_count) {   
         // preserve board state
         copy_board();
         
         // make move
-        if (!make_move(move, all_moves))
+        if (!make_move(move_list.moves[move_count], all_moves)) {
             // skip to the next move
             continue;
+        }
         
-        print_board();
-        getchar();
+        // call perft driver recursively
+        perft_driver(depth - 1);
         
         // take back
         take_back();
-        print_board();
-        
-        getchar();
     }
+}
+
+int main() {
+    // init all
+    init_all();
     
+    // parse fen
+    parse_fen(start_position);
+    print_board();
+
+    // start tracking time
+    int start = get_time_ms();
+
+    // perft
+    perft_driver(6);
+        
     // time taken to execute program
     printf("time taken to execute: %d ms\n", get_time_ms() - start);
-    getchar();
+    printf("nodes: %ld\n", nodes);
+
     return 0;
 }
