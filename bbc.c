@@ -14,6 +14,11 @@
 // system headers
 #include <stdio.h>
 #include <string.h>
+#ifdef WIN64
+    #include <windows.h>
+#else
+    # include <sys/time.h>
+#endif
 
 // define bitboard data type
 #define U64 unsigned long long
@@ -2075,34 +2080,43 @@ void init_all() {
  ==================================
 \**********************************/
 
+// get time in milliseconds
+int get_time_ms() {
+    #ifdef WIN64
+        return GetTickCount();
+    #else
+        struct timeval time_value;
+        gettimeofday(&time_value, NULL);
+        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
+    #endif
+}
 
 int main() {
-    // init all
-    init_all();
-    
-    // parse fen
-    parse_fen(tricky_position);
+     // parse fen
+    parse_fen("r3k2r/p1ppRpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1 ");
     print_board();
-    
+
     // create move list instance
-    moves move_list;
+    moves move_list[1];
     
     // generate moves
-    generate_moves(&move_list);
+    generate_moves(move_list);
+    
+    // start tracking time
+    int start = get_time_ms();
     
     // loop over generated moves
-    for (int move_count = 0; move_count < move_list.count; ++move_count) {
-         // init move
-        int move = move_list.moves[move_count];
+    for (int move_count = 0; move_count < move_list->count; move_count++) {
+        // init move
+        int move = move_list->moves[move_count];
         
         // preserve board state
         copy_board();
         
         // make move
-        if (!make_move(move, all_moves)) {
+        if (!make_move(move, all_moves))
             // skip to the next move
             continue;
-        }
         
         print_board();
         getchar();
@@ -2114,5 +2128,8 @@ int main() {
         getchar();
     }
     
+    // time taken to execute program
+    printf("time taken to execute: %d ms\n", get_time_ms() - start);
+    getchar();
     return 0;
 }
