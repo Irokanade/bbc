@@ -13,6 +13,7 @@
 
 // system headers
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef WIN64
     #include <windows.h>
@@ -2308,6 +2309,36 @@ void parse_position(char *command) {
     }
 }
 
+/*
+    Example UCI commands to make engine search for the best move
+    
+    // fixed depth search
+    go depth 64
+
+*/
+
+// parse UCI "go" command
+void parse_go(char *command) {
+    // init depth
+    int depth = -1;
+    
+    // init character pointer to the current depth argument
+    char *current_depth = NULL;
+    
+    // handle fixed depth search
+    if ((current_depth = strstr(command, "depth"))) {
+        //convert string to integer and assign the result value to depth
+        depth = atoi(current_depth + 6);
+    } else {
+        // different time controls placeholder
+        depth = 6;
+    }
+    
+    // search position
+    // search_position(depth);
+    printf("depth: %d\n", depth);
+}
+
 /**********************************\
  ==================================
  
@@ -2338,12 +2369,13 @@ void init_all() {
 \**********************************/
 
 int main() {
-     // init all
+    // init all
     init_all();
 
     // parse "position" command
     parse_position("position startpos moves e2e4 e7e5 g1f3");
     print_board();
-
-    return 0;
+    
+    // parse "go" command
+    parse_go("go depth 7");
 }
