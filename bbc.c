@@ -2165,6 +2165,20 @@ void perft_test(int depth) {
 /**********************************\
  ==================================
  
+               Search
+ 
+ ==================================
+\**********************************/
+
+// search position for the best move
+void search_position(int depth) {
+    // best move placeholder
+    printf("bestmove d2d4\n");
+}
+
+/**********************************\
+ ==================================
+ 
                 UCI
  
  ==================================
@@ -2304,9 +2318,10 @@ void parse_position(char *command) {
             // go to the next move
             ++current_char;
         }
-        
-        printf("%s\n", current_char);
     }
+
+    // print board
+    print_board();
 }
 
 /*
@@ -2335,8 +2350,77 @@ void parse_go(char *command) {
     }
     
     // search position
-    // search_position(depth);
-    printf("depth: %d\n", depth);
+    search_position(depth);
+}
+
+/*
+    GUI -> isready
+    Engine -> readyok
+    GUI -> ucinewgame
+*/
+
+// main UCI loop
+void uci_loop() {
+    // reset STDIN & STDOUT buffers
+    setbuf(stdin, NULL);
+    setbuf(stdout, NULL);
+    
+    // define user / GUI input buffer
+    char input[2000];
+    
+    // print engine info
+    printf("id name BBC\n");
+    printf("id name Irokanade\n");
+    printf("uciok\n");
+    
+    // main loop
+    while (1) {
+        // reset user /GUI input
+        memset(input, 0, sizeof(input));
+        
+        // make sure output reaches the GUI
+        fflush(stdout);
+        
+        // get user / GUI input
+        if (!fgets(input, 2000, stdin)) {
+            // continue the loop
+            continue;
+        }
+        
+        // make sure input is available
+        if (input[0] == '\n') {
+            // continue the loop
+            continue;
+        }
+        
+        // parse UCI "isready" command
+        if (strncmp(input, "isready", 7) == 0) {
+            printf("readyok\n");
+            continue;
+        } else if (strncmp(input, "position", 8) == 0) {
+            // parse UCI "position" command
+            // call parse position function
+            parse_position(input);
+        } else if (strncmp(input, "ucinewgame", 10) == 0) {
+            // parse UCI "ucinewgame" command
+            // call parse position function
+            parse_position("position startpos");
+        } else if (strncmp(input, "go", 2) == 0) {
+            // parse UCI "go" command
+            // call parse go function
+            parse_go(input);
+        } else if (strncmp(input, "quit", 4) == 0) {
+            // parse UCI "quit" command
+            // quit from the chess engine program execution
+            break;
+        } else if (strncmp(input, "uci", 3) == 0) {
+            // parse UCI "uci" command
+            // print engine info
+            printf("id name BBC\n");
+            printf("id name Irokanade\n");
+            printf("uciok\n");
+        }
+    }
 }
 
 /**********************************\
@@ -2372,10 +2456,19 @@ int main() {
     // init all
     init_all();
 
-    // parse "position" command
-    parse_position("position startpos moves e2e4 e7e5 g1f3");
-    print_board();
+    // debug mode variable
+    int debug = 0;
     
-    // parse "go" command
-    parse_go("go depth 7");
+    // if debugging
+    if (debug) {
+        // parse fen
+        parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ");
+        print_board();
+        // printf("score: %d\n", evaluate());
+    } else {
+        // connect to the GUI
+        uci_loop();
+    }
+
+    return 0;
 }
