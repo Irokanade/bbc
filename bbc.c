@@ -3,10 +3,6 @@
            
              Didactic
        BITBOARD CHESS ENGINE     
-       
-                by
-                
-         Code Monkey King
  
  ==================================
 \**********************************/
@@ -2341,7 +2337,7 @@ int best_move;
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
-    // recurrsion escapre condition
+    // recursion escapre condition
     if (depth == 0) {
         // return evaluation
         return evaluate();
@@ -2349,6 +2345,14 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // increment nodes count
     ++nodes;
+
+    // is king in check
+    int in_check = is_square_attacked((side == white) ? get_ls1b_index(bitboards[K]) : 
+                                                        get_ls1b_index(bitboards[k]),
+                                                        side ^ 1);
+
+    // legal moves counter
+    int legal_moves = 0;
     
     // best move so far
     int best_sofar;
@@ -2378,6 +2382,9 @@ static inline int negamax(int alpha, int beta, int depth) {
             // skip to next move
             continue;
         }
+
+        // increment legal moves
+        ++legal_moves;
         
         // score current move
         int score = -negamax(-beta, -alpha, depth - 1);
@@ -2392,6 +2399,19 @@ static inline int negamax(int alpha, int beta, int depth) {
         if (score >= beta) {
             // node (move) fails high
             return beta;
+        }
+
+        // we don't have any legal moves to make in the current postion
+        if (legal_moves == 0) {
+            // king is in check
+            if (in_check) {
+                // return mating score (assuming closest distance to mating position)
+                return -49000 + ply;
+            } else {
+                // king is not in check
+                // return stalemate score
+                return 0;
+            }
         }
         
         // found a better move
@@ -2422,10 +2442,14 @@ void search_position(int depth) {
     // find best move within a given position
     int score = negamax(-50000, 50000, depth);
     
-    // best move placeholder
-    printf("bestmove ");
-    print_move(best_move);
-    printf("\n");
+    if (best_move) {
+        printf("info score cp %d depth %d nodes %ld\n", score, depth, nodes);
+    
+        // best move placeholder
+        printf("bestmove ");
+        print_move(best_move);
+        printf("\n");
+    }
 }
 
 /**********************************\
