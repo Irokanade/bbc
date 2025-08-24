@@ -2335,12 +2335,79 @@ int ply;
 // best move
 int best_move;
 
+// quiescence search
+static inline int quiescence(int alpha, int beta) {
+    // evaluate position
+    int evaluation = evaluate();
+    
+    // fail-hard beta cutoff
+    if (evaluation >= beta) {
+        // node (move) fails high
+        return beta;
+    }
+    
+    // found a better move
+    if (evaluation > alpha) {
+        // PV node (move)
+        alpha = evaluation;
+    }
+    
+    // create move list instance
+    moves move_list;
+    
+    // generate moves
+    generate_moves(&move_list);
+    
+    // loop over moves within a movelist
+    for (int count = 0; count < move_list.count; ++count) {
+        // preserve board state
+        copy_board();
+        
+        // increment ply
+        ++ply;
+        
+        // make sure to make only legal moves
+        if (make_move(move_list.moves[count], only_captures) == 0) {
+            // decrement ply
+            --ply;
+            
+            // skip to next move
+            continue;
+        }
+
+        // score current move
+        int score = -quiescence(-beta, -alpha);
+        
+        // decrement ply
+        --ply;
+
+        // take move back
+        take_back();
+        
+        // fail-hard beta cutoff
+        if (score >= beta) {
+            // node (move) fails high
+            return beta;
+        }
+        
+        // found a better move
+        if (score > alpha) {
+            // PV node (move)
+            alpha = score;
+            
+        }
+    }
+    
+    // node (move) fails low
+    return alpha;
+}
+
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
     // recursion escapre condition
     if (depth == 0) {
-        // return evaluation
-        return evaluate();
+        // run quiescence search
+        return quiescence(alpha, beta);
     }
     
     // increment nodes count
@@ -2733,7 +2800,7 @@ int main() {
     init_all();
 
     // debug mode variable
-    int debug = 1;
+    int debug = 0;
     
     // if debugging
     if (debug) {
