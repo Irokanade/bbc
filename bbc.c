@@ -2367,6 +2367,57 @@ int ply;
 // best move
 int best_move;
 
+// score moves
+static inline int score_move(int move) {
+    // score capture move
+    if (get_move_capture(move)) {
+        // init target piece
+        int target_piece = P;
+        
+        // pick up bitboard piece index ranges depending on side
+        int start_piece;
+        int end_piece;
+        
+        // pick up side to move
+        if (side == white) { 
+            start_piece = p; 
+            end_piece = k; 
+        } else { 
+            start_piece = P; 
+            end_piece = K; 
+        }
+        
+        // loop over bitboards opposite to the current side to move
+        for (int bb_piece = start_piece; bb_piece <= end_piece; ++bb_piece) {
+            // if there's a piece on the target square
+            if (get_bit(bitboards[bb_piece], get_move_target(move))) {
+                // remove it from corresponding bitboard
+                target_piece = bb_piece;
+                break;
+            }
+        }
+                
+        // score move by MVV LVA lookup [source piece][target piece]
+        return mvv_lva[get_move_piece(move)][target_piece];
+    } else {
+        // score quiet move
+    }
+    
+    return 0;
+}
+
+// print move scores
+void print_move_scores(moves *move_list) {
+    printf("     Move scores:\n\n");
+        
+    // loop over moves within a move list
+    for (int count = 0; count <= move_list->count; ++count) {
+        printf("     move: ");
+        print_move(move_list->moves[count]);
+        printf(" score: %d\n", score_move(move_list->moves[count]));
+    }
+}
+
 // quiescence search
 static inline int quiescence(int alpha, int beta) {
     // increment nodes count
