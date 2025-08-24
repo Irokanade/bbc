@@ -2406,12 +2406,43 @@ static inline int score_move(int move) {
     return 0;
 }
 
+// sort moves in descending order
+static inline void sort_moves(moves *move_list) {
+    // move scores
+    int move_scores[move_list->count];
+    printf("\n\n");
+    // score all the moves within a move list
+    for (int count = 0; count < move_list->count; ++count) {
+        // score move
+        move_scores[count] = score_move(move_list->moves[count]);
+    }
+    
+    // loop over current move within a move list
+    for (int current_move = 0; current_move < move_list->count; ++current_move) {
+        // loop over next move within a move list
+        for (int next_move = current_move + 1; next_move < move_list->count; ++next_move) {
+            // compare current and next move scores
+            if (move_scores[current_move] < move_scores[next_move]) {
+                // swap scores
+                int temp_score = move_scores[current_move];
+                move_scores[current_move] = move_scores[next_move];
+                move_scores[next_move] = temp_score;
+                
+                // swap moves
+                int temp_move = move_list->moves[current_move];
+                move_list->moves[current_move] = move_list->moves[next_move];
+                move_list->moves[next_move] = temp_move;
+            }
+        }
+    }
+}
+
 // print move scores
 void print_move_scores(moves *move_list) {
     printf("     Move scores:\n\n");
         
     // loop over moves within a move list
-    for (int count = 0; count <= move_list->count; ++count) {
+    for (int count = 0; count < move_list->count; ++count) {
         printf("     move: ");
         print_move(move_list->moves[count]);
         printf(" score: %d\n", score_move(move_list->moves[count]));
@@ -2886,14 +2917,29 @@ int main() {
     init_all();
 
     // debug mode variable
-    int debug = 0;
+    int debug = 1;
     
     // if debugging
     if (debug) {
         // parse fen
-        parse_fen(start_position);
+        parse_fen(tricky_position);
         print_board();
-        search_position(4);
+        //search_position(3);
+        
+        // create move list instance
+        moves move_list[1];
+        
+        // generate moves
+        generate_moves(move_list);
+        
+        // print move scores
+        //print_move_scores(move_list);
+        
+        // sort move
+        sort_moves(move_list);
+        
+        // print move scores
+        print_move_scores(move_list);
     } else {
         // connect to the GUI
         uci_loop();
