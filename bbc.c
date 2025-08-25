@@ -2336,6 +2336,12 @@ static int mvv_lva[12][12] = {
 	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600
 };
 
+// killer moves [id][ply]
+int killer_moves[2][64];
+
+// history moves [piece][square]
+int history_moves[12][64];
+
 // half move counter
 int ply;
 
@@ -2373,9 +2379,19 @@ static inline int score_move(int move) {
         }
                 
         // score move by MVV LVA lookup [source piece][target piece]
-        return mvv_lva[get_move_piece(move)][target_piece];
+        return mvv_lva[get_move_piece(move)][target_piece] + 10000;
     } else {
         // score quiet move
+        if (killer_moves[0][ply] == move) {
+            // score 1st killer move
+            return 9000;
+        } else if (killer_moves[1][ply] == move) {
+            // score 2nd killer move
+            return 8000;
+        } else {
+            // score history move
+            return history_moves[get_move_piece(move)][get_move_target(move)];
+        }
     }
     
     return 0;
@@ -2515,7 +2531,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // increase search depth if the king has been exposed into a check
     if (in_check) {
-        depth++;
+        ++depth;
     }
     
     // legal moves counter
@@ -2567,12 +2583,19 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // fail-hard beta cutoff
         if (score >= beta) {
+            // store killer moves
+            killer_moves[1][ply] = killer_moves[0][ply];
+            killer_moves[0][ply] = move_list.moves[count];
+
             // node (move) fails high
             return beta;
         }
         
         // found a better move
         if (score > alpha) {
+            // store history moves
+            history_moves[get_move_piece(move_list.moves[count])][get_move_target(move_list.moves[count])] += depth;
+
             // PV node (move)
             alpha = score;
             
@@ -2911,21 +2934,6 @@ int main() {
         parse_fen(tricky_position);
         print_board();
         search_position(5);
-        
-        // create move list instance
-        //moves move_list[1];
-        
-        // generate moves
-        //generate_moves(move_list);
-        
-        // print move scores
-        //print_move_scores(move_list);
-        
-        // sort move
-        //sort_moves(move_list);
-        
-        // print move scores
-        //print_move_scores(move_list);
     } else {
         // connect to the GUI
         uci_loop();
