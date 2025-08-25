@@ -2342,11 +2342,36 @@ int killer_moves[2][64];
 // history moves [piece][square]
 int history_moves[12][64];
 
+/*
+      ================================
+            Triangular PV table
+      --------------------------------
+        PV line: e2e4 e7e5 g1f3 b8c6
+      ================================
+
+           0    1    2    3    4    5
+      
+      0    m1   m2   m3   m4   m5   m6
+      
+      1    0    m2   m3   m4   m5   m6 
+      
+      2    0    0    m3   m4   m5   m6
+      
+      3    0    0    0    m4   m5   m6
+       
+      4    0    0    0    0    m5   m6
+      
+      5    0    0    0    0    0    m6
+*/
+
+// PV length
+int pv_length[64];
+
+// PV table
+int pv_table[64][64];
+
 // half move counter
 int ply;
-
-// best move
-int best_move;
 
 // score moves
 static inline int score_move(int move) {
@@ -2515,6 +2540,9 @@ static inline int quiescence(int alpha, int beta) {
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
+    // init PV length
+    pv_length[ply] = ply;
+
     // recursion escapre condition
     if (depth == 0) {
         // run quiescence search
@@ -2536,12 +2564,6 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // legal moves counter
     int legal_moves = 0;
-    
-    // best move so far
-    int best_sofar;
-    
-    // old value of alpha
-    int old_alpha = alpha;
     
     // create move list instance
     moves move_list;
@@ -2583,27 +2605,39 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // fail-hard beta cutoff
         if (score >= beta) {
-            // store killer moves
-            killer_moves[1][ply] = killer_moves[0][ply];
-            killer_moves[0][ply] = move_list.moves[count];
-
+            // on quiet moves
+            if (get_move_capture(move_list.moves[count]) == 0) {
+                // store killer moves
+                killer_moves[1][ply] = killer_moves[0][ply];
+                killer_moves[0][ply] = move_list.moves[count];
+            }
+            
             // node (move) fails high
             return beta;
         }
         
         // found a better move
         if (score > alpha) {
-            // store history moves
-            history_moves[get_move_piece(move_list.moves[count])][get_move_target(move_list.moves[count])] += depth;
-
+            // on quiet moves
+            if (get_move_capture(move_list.moves[count]) == 0) {
+                // store history moves
+                history_moves[get_move_piece(move_list.moves[count])][get_move_target(move_list.moves[count])] += depth;
+            }
+            
             // PV node (move)
             alpha = score;
+
+            // write PV move
+            pv_table[ply][ply] = move_list.moves[count];
             
-            // if root move
-            if (ply == 0) {
-                // associate best move with the best score
-                best_sofar = move_list.moves[count];
+            // loop over the next ply
+            for (int next_ply = ply + 1; next_ply < pv_length[ply + 1]; ++next_ply) {
+                // copy move from deeper ply into a current ply's line
+                pv_table[ply][next_ply] = pv_table[ply + 1][next_ply];
             }
+            
+            // adjust PV length
+            pv_length[ply] = pv_length[ply + 1];  
         }
     }
     
@@ -2620,12 +2654,6 @@ static inline int negamax(int alpha, int beta, int depth) {
         }
     }
     
-    // found better move
-    if (old_alpha != alpha) {
-        // init best move
-        best_move = best_sofar;
-    }
-    
     // node (move) fails low
     return alpha;
 }
@@ -2635,14 +2663,22 @@ void search_position(int depth) {
     // find best move within a given position
     int score = negamax(-50000, 50000, depth);
     
-    if (best_move) {
-        printf("info score cp %d depth %d nodes %ld\n", score, depth, nodes);
+    printf("info score cp %d depth %d nodes %ld pv ", score, depth, nodes);
     
-        // best move placeholder
-        printf("bestmove ");
-        print_move(best_move);
-        printf("\n");
+    // loop over the moves within a PV line
+    for (int count = 0; count < pv_length[0]; ++count) {
+        // print PV move
+        print_move(pv_table[0][count]);
+        printf(" ");
     }
+    
+    // print new line
+    printf("\n");
+
+    // best move placeholder
+    printf("bestmove ");
+    print_move(pv_table[0][0]);
+    printf("\n");
 }
 
 /**********************************\
