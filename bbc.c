@@ -2336,8 +2336,11 @@ static int mvv_lva[12][12] = {
 	100, 200, 300, 400, 500, 600,  100, 200, 300, 400, 500, 600
 };
 
+// max ply that we can reach within a search
+#define max_ply 64
+
 // killer moves [id][ply]
-int killer_moves[2][64];
+int killer_moves[2][max_ply];
 
 // history moves [piece][square]
 int history_moves[12][64];
@@ -2364,11 +2367,11 @@ int history_moves[12][64];
       5    0    0    0    0    0    m6
 */
 
-// PV length
-int pv_length[64];
+// PV length [ply]
+int pv_length[max_ply];
 
-// PV table
-int pv_table[64][64];
+// PV table [ply][ply]
+int pv_table[max_ply][max_ply];
 
 // half move counter
 int ply;
@@ -2548,6 +2551,12 @@ static inline int negamax(int alpha, int beta, int depth) {
         // run quiescence search
         return quiescence(alpha, beta);
     }
+
+     // we are too deep, hence there's an overflow of arrays relying on max ply constant
+    if (ply > max_ply - 1) {
+        // evaluate position
+        return evaluate();
+    }
     
     // increment nodes count
     ++nodes;
@@ -2660,8 +2669,60 @@ static inline int negamax(int alpha, int beta, int depth) {
 
 // search position for the best move
 void search_position(int depth) {
+    // define best score variable
+    int score = 0;
+    
+    // reset nodes counter
+    nodes = 0;
+    
+    // clear helper data structures for search
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
+    memset(pv_table, 0, sizeof(pv_table));
+    memset(pv_length, 0, sizeof(pv_length));
+    
+    // iterative deepening
+    for (int current_depth = 1; current_depth <= depth; ++current_depth) {
+        nodes = 0;
+        
+        // find best move within a given position
+        score = negamax(-50000, 50000, current_depth);
+        
+        printf("info score cp %d depth %d nodes %ld pv ", score, current_depth, nodes);
+        
+        // loop over the moves within a PV line
+        for (int count = 0; count < pv_length[0]; ++count) {
+            // print PV move
+            print_move(pv_table[0][count]);
+            printf(" ");
+        }
+        
+        // print new line
+        printf("\n");
+    }
+
+    // best move placeholder
+    printf("bestmove ");
+    print_move(pv_table[0][0]);
+    printf("\n");
+    
+    
+    
+    
+    
+    
+    
+    // reset nodes counter
+    nodes = 0;
+    
+    // clear helper data structures for search
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
+    memset(pv_table, 0, sizeof(pv_table));
+    memset(pv_length, 0, sizeof(pv_length));
+    
     // find best move within a given position
-    int score = negamax(-50000, 50000, depth);
+    score = negamax(-50000, 50000, depth);
     
     printf("info score cp %d depth %d nodes %ld pv ", score, depth, nodes);
     
@@ -2969,7 +3030,7 @@ int main() {
         // parse fen
         parse_fen(tricky_position);
         print_board();
-        search_position(5);
+        search_position(6);
     } else {
         // connect to the GUI
         uci_loop();
