@@ -2625,6 +2625,31 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // legal moves counter
     int legal_moves = 0;
+
+    // null move pruning
+    if (depth >= 3 && in_check == 0 && ply) {
+        // preserve board state
+        copy_board();
+        
+        // switch the side, literally giving opponent an extra move to make
+        side ^= 1;
+        
+        // reset enpassant capture square
+        enpassant = no_sq;
+        
+        /* search moves with reduced depth to find beta cutoffs
+           depth - 1 - R where R is a reduction limit */
+        int score = -negamax(-beta, -beta + 1, depth - 1 - 2);
+        
+        // restore board state
+        take_back();
+        
+        // fail-hard beta cutoff
+        if (score >= beta) {
+            // node (move) fails high
+            return beta;
+        }
+    }
     
     // create move list instance
     moves move_list;
@@ -3135,7 +3160,7 @@ int main() {
         // parse fen
         parse_fen(tricky_position);
         print_board();
-        search_position(6);
+        search_position(7);
     } else {
         // connect to the GUI
         uci_loop();
