@@ -2398,6 +2398,18 @@ static inline void enable_pv_scoring(moves *move_list) {
     }
 }
 
+/*  =======================
+         Move ordering
+    =======================
+    
+    1. PV move
+    2. Captures in MVV/LVA
+    3. 1st killer move
+    4. 2nd killer move
+    5. History moves
+    6. Unsorted moves
+*/
+
 // score moves
 static inline int score_move(int move) {
     // if PV move scoring is allowed
@@ -2575,6 +2587,9 @@ static inline int quiescence(int alpha, int beta) {
     return alpha;
 }
 
+const int full_depth_moves = 4;
+const int reduction_limit = 3;
+
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
     // define find PV node variable
@@ -2625,6 +2640,9 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // sort moves
     sort_moves(&move_list);
+
+    // number of moves searched in a move list
+    int moves_searched = 0;
     
     // loop over moves within a movelist
     for (int count = 0; count < move_list.count; ++count) {
@@ -2682,9 +2700,39 @@ static inline int negamax(int alpha, int beta, int depth) {
                 score = -negamax(-beta, -alpha, depth - 1);
             }
         } else {
-            // for all other types of nodes (moves)  1056080 824253
-            // do normal alpha beta search
-            score = -negamax(-beta, -alpha, depth - 1);
+            // for all other types of nodes (moves)
+            // full depth search
+            if (moves_searched == 0) {
+                // do normal alpha beta search
+                score = -negamax(-beta, -alpha, depth - 1);
+            } else {
+                // late move reduction (LMR)
+                // condition to consider LMR
+                if(
+                    moves_searched >= full_depth_moves &&
+                    depth >= reduction_limit &&
+                    in_check == 0 && 
+                    get_move_capture(move_list.moves[count]) == 0 &&
+                    get_move_promoted(move_list.moves[count]) == 0
+                ) {
+                    // search current move with reduced depth:
+                    score = -negamax(-alpha - 1, -alpha, depth - 2);
+                } else {
+                    // hack to ensure that full-depth search is done
+                    score = alpha + 1;
+                }
+                
+                // if found a better move during LMR
+                if(score > alpha) {
+                    // re-search at full depth but with narrowed score bandwith
+                    score = -negamax(-alpha - 1, -alpha, depth-1);
+                
+                    // if LMR fails re-search at full depth and full score bandwith
+                    if((score > alpha) && (score < beta)) {
+                        score = -negamax(-beta, -alpha, depth-1);
+                    }
+                }
+            }
         }
         
         // decrement ply
@@ -2692,6 +2740,9 @@ static inline int negamax(int alpha, int beta, int depth) {
 
         // take move back
         take_back();
+
+        // increment the counter of moves searched so far
+        ++moves_searched;
         
         // fail-hard beta cutoff
         if (score >= beta) {
