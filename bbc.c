@@ -2845,13 +2845,28 @@ void search_position(int depth) {
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
     
+    // define initial alpha beta bounds
+    int alpha = -50000;
+    int beta = 50000;
+
     // iterative deepening
     for (int current_depth = 1; current_depth <= depth; ++current_depth) {
         // enable follow PV flag
         follow_pv = 1;
         
         // find best move within a given position
-        score = negamax(-50000, 50000, current_depth);
+        score = negamax(alpha, beta, current_depth);
+ 
+        // we fell outside the window, so try again with a full-width window (and the same depth)
+        if ((score <= alpha) || (score >= beta)) {
+            alpha = -50000;    
+            beta = 50000;      
+            continue;
+        }
+        
+        // set up the window for the next iteration
+        alpha = score - 50;
+        beta = score + 50;
         
         printf("info score cp %d depth %d nodes %ld pv ", score, current_depth, nodes);
         
