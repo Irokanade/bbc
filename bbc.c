@@ -11,10 +11,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #ifdef WIN64
     #include <windows.h>
 #else
-    # include <sys/time.h>
+    #include <sys/time.h>
+    #include <sys/types.h>
+    #include <sys/select.h>
 #endif
 
 // define bitboard data type
@@ -232,6 +235,163 @@ int enpassant = no_sq;
 
 // castling rights
 int castle;
+
+/**********************************\
+ ==================================
+ 
+       Time controls variables
+ 
+ ==================================
+\**********************************/
+
+// exit from engine flag
+int quit = 0;
+
+// UCI "movestogo" command moves counter
+int movestogo = 30;
+
+// UCI "movetime" command time counter
+int movetime = -1;
+
+// UCI "time" command holder (ms)
+int uci_time = -1;
+
+// UCI "inc" command's time increment holder
+int inc = 0;
+
+// UCI "starttime" command time holder
+int starttime = 0;
+
+// UCI "stoptime" command time holder
+int stoptime = 0;
+
+// variable to flag time control availability
+int timeset = 0;
+
+// variable to flag when the time is up
+int stopped = 0;
+
+
+/**********************************\
+ ==================================
+ 
+       Miscellaneous functions
+          forked from VICE
+         by Richard Allbert
+ 
+ ==================================
+\**********************************/
+
+// get time in milliseconds
+int get_time_ms() {
+    #ifdef WIN64
+        return GetTickCount();
+    #else
+        struct timeval time_value;
+        gettimeofday(&time_value, NULL);
+        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
+    #endif
+}
+
+/*
+
+  Function to "listen" to GUI's input during search.
+  It's waiting for the user input from STDIN.
+  OS dependent.
+  
+  First Richard Allbert aka BluefeverSoftware grabbed it from somewhere...
+  And then Code Monkey King has grabbed it from VICE)
+  
+*/
+  
+int input_waiting() {
+    #ifndef WIN32
+        fd_set readfds;
+        struct timeval tv;
+        FD_ZERO (&readfds);
+        FD_SET (fileno(stdin), &readfds);
+        tv.tv_sec=0; tv.tv_usec=0;
+        select(16, &readfds, 0, 0, &tv);
+
+        return (FD_ISSET(fileno(stdin), &readfds));
+    #else
+        static int init = 0, pipe;
+        static HANDLE inh;
+        DWORD dw;
+
+        if (!init) {
+            init = 1;
+            inh = GetStdHandle(STD_INPUT_HANDLE);
+            pipe = !GetConsoleMode(inh, &dw);
+            if (!pipe) {
+                SetConsoleMode(inh, dw & ~(ENABLE_MOUSE_INPUT|ENABLE_WINDOW_INPUT));
+                FlushConsoleInputBuffer(inh);
+            }
+        }
+        
+        if (pipe) {
+           if (!PeekNamedPipe(inh, NULL, 0, NULL, &dw, NULL)) return 1;
+           return dw;
+        } else {
+           GetNumberOfConsoleInputEvents(inh, &dw);
+           return dw <= 1 ? 0 : dw;
+        }
+
+    #endif
+}
+
+// read GUI/user input
+void read_input() {
+    // bytes to read holder
+    int bytes;
+    
+    // GUI/user input
+    char input[256] = "", *endc;
+
+    // "listen" to STDIN
+    if (input_waiting()) {
+        // tell engine to stop calculating
+        stopped = 1;
+        
+        // loop to read bytes from STDIN
+        do {
+            // read bytes from STDIN
+            bytes=read(fileno(stdin), input, 256);
+            // until bytes available
+        } while (bytes < 0);
+        
+        // searches for the first occurrence of '\n'
+        endc = strchr(input,'\n');
+        
+        // if found new line set value at pointer to 0
+        if (endc) *endc=0;
+        
+        // if input is available
+        if (strlen(input) > 0) {
+            // match UCI "quit" command
+            if (!strncmp(input, "quit", 4)) {
+                // tell engine to terminate exacution    
+                quit = 1;
+            } else if (!strncmp(input, "stop", 4)) {
+                // // match UCI "stop" command
+                // tell engine to terminate exacution
+                quit = 1;
+            }
+        }   
+    }
+}
+
+// a bridge function to interact between search and GUI input
+static void communicate() {
+	// if time is up break here
+    if(timeset == 1 && get_time_ms() > stoptime) {
+		// tell engine to stop calculating
+		stopped = 1;
+	}
+	
+    // read GUI input
+	read_input();
+}
 
 /**********************************\
  ==================================
@@ -2036,17 +2196,6 @@ static inline void generate_moves(moves *move_list) {
  ==================================
 \**********************************/
 
-// get time in milliseconds
-int get_time_ms() {
-    #ifdef WIN64
-        return GetTickCount();
-    #else
-        struct timeval time_value;
-        gettimeofday(&time_value, NULL);
-        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-    #endif
-}
-
 // leaf nodes (number of positions reached during the test of the move generator at a given depth)
 long nodes;
 
@@ -2516,6 +2665,12 @@ void print_move_scores(moves *move_list) {
 
 // quiescence search
 static inline int quiescence(int alpha, int beta) {
+    // every 2047 nodes
+    if((nodes & 2047 ) == 0) {
+        // "listen" to the GUI/user input
+		communicate();
+    }
+
     // increment nodes count
     ++nodes;
 
@@ -2568,6 +2723,11 @@ static inline int quiescence(int alpha, int beta) {
 
         // take move back
         take_back();
+
+        // return 0 if time is up
+        if(stopped == 1) {
+            return 0;
+        }
         
         // fail-hard beta cutoff
         if (score >= beta) {
@@ -2592,6 +2752,12 @@ const int reduction_limit = 3;
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
+    // every 2047 nodes
+    if((nodes & 2047 ) == 0) {
+        // "listen" to the GUI/user input
+		communicate();
+    }
+
     // init PV length
     pv_length[ply] = ply;
 
@@ -2640,6 +2806,11 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // restore board state
         take_back();
+
+        // return 0 if time is up
+        if(stopped == 1) {
+            return 0;
+        }
         
         // fail-hard beta cutoff
         if (score >= beta) {
@@ -2741,6 +2912,11 @@ static inline int negamax(int alpha, int beta, int depth) {
         // take move back
         take_back();
 
+        // return 0 if time is up
+        if(stopped == 1) {
+            return 0;
+        }
+
         // increment the counter of moves searched so far
         ++moves_searched;
         
@@ -2807,6 +2983,9 @@ void search_position(int depth) {
     // reset nodes counter
     nodes = 0;
 
+    // reset "time is up" flag
+    stopped = 0;
+
     // reset follow PV flags
     follow_pv = 0;
     score_pv = 0;
@@ -2823,6 +3002,12 @@ void search_position(int depth) {
 
     // iterative deepening
     for (int current_depth = 1; current_depth <= depth; ++current_depth) {
+        // if time is up
+        if(stopped == 1) {
+            // stop calculating and return best move so far 
+			break;
+        }
+
         // enable follow PV flag
         follow_pv = 1;
         
@@ -3017,21 +3202,93 @@ void parse_position(char *command) {
 
 // parse UCI "go" command
 void parse_go(char *command) {
-    // init depth
+    // init parameters
     int depth = -1;
-    
-    // init character pointer to the current depth argument
-    char *current_depth = NULL;
-    
-    // handle fixed depth search
-    if ((current_depth = strstr(command, "depth"))) {
-        //convert string to integer and assign the result value to depth
-        depth = atoi(current_depth + 6);
-    } else {
-        // different time controls placeholder
-        depth = 6;
+
+    // init argument
+    char *argument = NULL;
+
+    // infinite search
+    if ((argument = strstr(command,"infinite"))) {}
+
+    // match UCI "binc" command
+    if ((argument = strstr(command,"binc")) && side == black) {
+        // parse black time increment
+        inc = atoi(argument + 5);
     }
-    
+
+    // match UCI "winc" command
+    if ((argument = strstr(command,"winc")) && side == white) {
+        // parse white time increment
+        inc = atoi(argument + 5);
+    }
+
+    // match UCI "wtime" command
+    if ((argument = strstr(command,"wtime")) && side == white) {
+        // parse white time limit
+        uci_time = atoi(argument + 6);
+    }
+
+    // match UCI "btime" command
+    if ((argument = strstr(command,"btime")) && side == black) {
+        // parse black time limit
+        uci_time = atoi(argument + 6);
+    }
+
+    // match UCI "movestogo" command
+    if ((argument = strstr(command,"movestogo"))) {
+        // parse number of moves to go
+        movestogo = atoi(argument + 10);
+    }
+
+    // match UCI "movetime" command
+    if ((argument = strstr(command,"movetime"))) {
+        // parse amount of time allowed to spend to make a move
+        movetime = atoi(argument + 9);
+    }
+
+    // match UCI "depth" command
+    if ((argument = strstr(command,"depth"))) {
+        // parse search depth
+        depth = atoi(argument + 6);
+    }
+
+    // if move time is not available
+    if(movetime != -1) {
+        // set time equal to move time
+        uci_time = movetime;
+
+        // set moves to go to 1
+        movestogo = 1;
+    }
+
+    // init start time
+    starttime = get_time_ms();
+
+    // init search depth
+    depth = depth;
+
+    // if time control is available
+    if(uci_time != -1) {
+        // flag we're playing with time control
+        timeset = 1;
+
+        // set up timing
+        uci_time /= movestogo;
+        uci_time -= 50;
+        stoptime = starttime + uci_time + inc;
+    }
+
+    // if depth is not available
+    if(depth == -1) {
+        // set depth to 64 plies (takes ages to complete...)
+        depth = 64;
+    }
+
+    // print debug info
+    printf("time:%d start:%d stop:%d depth:%d timeset:%d\n",
+    uci_time, starttime, stoptime, depth, timeset);
+
     // search position
     search_position(depth);
 }
@@ -3140,7 +3397,7 @@ int main() {
     init_all();
 
     // debug mode variable
-    int debug = 1;
+    int debug = 0;
     
     // if debugging
     if (debug) {
