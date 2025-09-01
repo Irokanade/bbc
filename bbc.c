@@ -236,6 +236,9 @@ int enpassant = no_sq;
 // castling rights
 int castle;
 
+// "almost" unique position identifier aka hash key or position key
+U64 hash_key;
+
 /**********************************\
  ==================================
  
@@ -537,6 +540,50 @@ void init_random_keys() {
     side_key = get_random_U64_number();
 }
 
+// generate "almost" unique position ID aka hash key from scratch
+U64 generate_hash_key() {
+    // final hash key
+    U64 final_key = 0ULL;
+    
+    // temp piece bitboard copy
+    U64 bitboard;
+    
+    // loop over piece bitboards
+    for (int piece = P; piece <= k; ++piece) {
+        // init piece bitboard copy
+        bitboard = bitboards[piece];
+        
+        // loop over the pieces within a bitboard
+        while (bitboard) {
+            // init square occupied by the piece
+            int square = get_ls1b_index(bitboard);
+            
+            // hash piece
+            final_key ^= piece_keys[piece][square];
+            
+            // pop LS1B
+            pop_bit(bitboard, square);
+        }
+    }
+    
+    // if enpassant square is on board
+    if (enpassant != no_sq) {
+        // hash enpassant
+        final_key ^= enpassant_keys[enpassant];
+    }
+    
+    // hash castling rights
+    final_key ^= castle_keys[castle];
+    
+    // hash the side only if black is to move
+    if (side == black) {
+        final_key ^= side_key;
+    }
+    
+    // return generated hash key
+    return final_key;
+}
+
 /**********************************\
  ==================================
  
@@ -632,6 +679,9 @@ void print_board() {
                                            (castle & wq) ? 'Q' : '-',
                                            (castle & bk) ? 'k' : '-',
                                            (castle & bq) ? 'q' : '-');
+
+    // print hash key
+    printf("     Hash key:  %llx\n\n", hash_key);
 }
 
 // parse FEN string
@@ -758,6 +808,9 @@ void parse_fen(char *fen) {
     // init all occupancies
     occupancies[both] |= occupancies[white];
     occupancies[both] |= occupancies[black];
+
+    // init hash key
+    hash_key = generate_hash_key();
 }
 
 /**********************************\
@@ -3450,7 +3503,7 @@ int main() {
     init_all();
 
     // debug mode variable
-    int debug = 0;
+    int debug = 1;
     
     // if debugging
     if (debug) {
