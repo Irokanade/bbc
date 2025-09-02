@@ -2734,6 +2734,9 @@ int ply;
 // hash table size
 #define hash_size 0x400000
 
+// no hash entry found constant
+#define no_hash_entry 100000
+
 // transposition table hash flags
 #define hash_flag_exact 0
 #define hash_flag_alpha 1
@@ -2760,6 +2763,56 @@ void clear_hash_table() {
         hash_table[index].flag = 0;
         hash_table[index].score = 0;
     }
+}
+
+// read hash entry data
+static inline int read_hash_entry(int alpha, int beta, int depth) {
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_size];
+    
+    // make sure we're dealing with the exact position we need
+    if (hash_entry->hash_key == hash_key) {
+        // make sure that we match the exact depth our search is now at
+        if (hash_entry->depth >= depth) {
+            // match the exact (PV node) score 
+            if (hash_entry->flag == hash_flag_exact) {
+                // return exact (PV node) score
+                printf("exact score: "); 
+                return hash_entry->score;
+            }
+            
+            // match alpha (fail-low node) score
+            if ((hash_entry->flag == hash_flag_alpha) && (hash_entry->score <= alpha)) {
+                // return alpha (fail-low node) score
+                printf("alpha score: "); 
+                return alpha;
+            }
+            
+            // match beta (fail-high node) score
+            if ((hash_entry->flag == hash_flag_beta) && (hash_entry->score >= beta)) {
+                // return beta (fail-high node) score
+                printf(" beta score: "); 
+                return beta;
+            }
+        }
+    }
+    
+    // if hash entry doesn't exist
+    return no_hash_entry;
+}
+
+// write hash entry data
+static inline void write_hash_entry(int score, int depth, int hash_flag) {
+    // create a TT instance pointer to particular hash entry storing
+    // the scoring data for the current board position if available
+    tt *hash_entry = &hash_table[hash_key % hash_size];
+
+    // write hash entry data 
+    hash_entry->hash_key = hash_key;
+    hash_entry->score = score;
+    hash_entry->flag = hash_flag;
+    hash_entry->depth = depth;
 }
 
 // enable PV move scoring
@@ -3642,7 +3695,17 @@ int main() {
         print_board();
         //search_position(7);
         
-        perft_test(6);
+        // clear hash table
+        clear_hash_table();
+        
+        // write example entry to hash table
+        write_hash_entry(45, 1, hash_flag_beta);
+
+        // read score from hash table
+        int score = read_hash_entry(20, 30, 1);
+
+        // print score from hash entry
+        printf("%d\n", score);
     } else {
         // connect to the GUI
         uci_loop();
