@@ -2723,6 +2723,45 @@ int score_pv;
 // half move counter
 int ply;
 
+/**********************************\
+ ==================================
+ 
+        Transposition table
+ 
+ ==================================
+\**********************************/
+
+// hash table size
+#define hash_size 0x400000
+
+// transposition table hash flags
+#define hash_flag_exact 0
+#define hash_flag_alpha 1
+#define hash_flag_beta 2
+
+// transposition table data structure
+typedef struct {
+    U64 hash_key;   // "almost" unique chess position identifier
+    int depth;      // current search depth
+    int flag;       // flag the type of node (fail-low/fail-high/PV) 
+    int score;      // score (alpha/beta/PV)
+} tt;               // transposition table (TT aka hash table)
+
+// define TT instance
+tt hash_table[hash_size];
+
+// clear TT (hash table)
+void clear_hash_table() {
+    // loop over TT elements
+    for (int index = 0; index < hash_size; ++index) {
+        // reset TT inner fields
+        hash_table[index].hash_key = 0;
+        hash_table[index].depth = 0;
+        hash_table[index].flag = 0;
+        hash_table[index].score = 0;
+    }
+}
+
 // enable PV move scoring
 static inline void enable_pv_scoring(moves *move_list) {
     // disable following PV
