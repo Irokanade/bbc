@@ -2957,6 +2957,12 @@ static inline int quiescence(int alpha, int beta) {
     // increment nodes count
     ++nodes;
 
+    // we are too deep, hence there's an overflow of arrays relying on max ply constant
+    if (ply > max_ply - 1) {
+        // evaluate position
+        return evaluate();
+    }
+
     // evaluate position
     int evaluation = evaluate();
     
@@ -3012,17 +3018,16 @@ static inline int quiescence(int alpha, int beta) {
             return 0;
         }
         
-        // fail-hard beta cutoff
-        if (score >= beta) {
-            // node (move) fails high
-            return beta;
-        }
-        
         // found a better move
         if (score > alpha) {
-            // PV node (move)
+            // PV node (position)
             alpha = score;
             
+            // fail-hard beta cutoff
+            if (score >= beta) {
+                // node (position) fails high
+                return beta;
+            }
         }
     }
     
@@ -3042,7 +3047,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     int hash_flag = hash_flag_alpha;
     
     // read hash entry
-    if ((score = read_hash_entry(alpha, beta, depth)) != no_hash_entry) {
+    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry) {
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
         return score;
@@ -3063,7 +3068,7 @@ static inline int negamax(int alpha, int beta, int depth) {
         return quiescence(alpha, beta);
     }
 
-     // we are too deep, hence there's an overflow of arrays relying on max ply constant
+    // we are too deep, hence there's an overflow of arrays relying on max ply constant
     if (ply > max_ply - 1) {
         // evaluate position
         return evaluate();
@@ -3090,6 +3095,9 @@ static inline int negamax(int alpha, int beta, int depth) {
         // preserve board state
         copy_board();
 
+        // increment ply
+        ++ply;
+        
         // hash enpassant if available
         if (enpassant != no_sq) {
             hash_key ^= enpassant_keys[enpassant];
@@ -3107,18 +3115,21 @@ static inline int negamax(int alpha, int beta, int depth) {
         /* search moves with reduced depth to find beta cutoffs
            depth - 1 - R where R is a reduction limit */
         score = -negamax(-beta, -beta + 1, depth - 1 - 2);
-        
+
+        // decrement ply
+        --ply;
+            
         // restore board state
         take_back();
 
-        // return 0 if time is up
+        // reutrn 0 if time is up
         if(stopped == 1) {
             return 0;
         }
-        
+
         // fail-hard beta cutoff
         if (score >= beta) {
-            // node (move) fails high
+            // node (position) fails high
             return beta;
         }
     }
@@ -3178,7 +3189,7 @@ static inline int negamax(int alpha, int beta, int depth) {
                 // search current move with reduced depth:
                 score = -negamax(-alpha - 1, -alpha, depth - 2);
             } else {
-                // hack to ensure that full-depth search is done 
+                // hack to ensure that full-depth search is done
                 score = alpha + 1;
             }
             
@@ -3213,29 +3224,13 @@ static inline int negamax(int alpha, int beta, int depth) {
         // take move back
         take_back();
 
-        // return 0 if time is up
+        // reutrn 0 if time is up
         if(stopped == 1) {
             return 0;
         }
 
         // increment the counter of moves searched so far
         ++moves_searched;
-        
-        // fail-hard beta cutoff
-        if (score >= beta) {
-            // store hash entry with the score equal to beta
-            write_hash_entry(beta, depth, hash_flag_beta);
-
-            // on quiet moves
-            if (get_move_capture(move_list.moves[count]) == 0) {
-                // store killer moves
-                killer_moves[1][ply] = killer_moves[0][ply];
-                killer_moves[0][ply] = move_list.moves[count];
-            }
-            
-            // node (move) fails high
-            return beta;
-        }
         
         // found a better move
         if (score > alpha) {
@@ -3248,8 +3243,8 @@ static inline int negamax(int alpha, int beta, int depth) {
                 // store history moves
                 history_moves[get_move_piece(move_list.moves[count])][get_move_target(move_list.moves[count])] += depth;
             }
-            
-            // PV node (move)
+
+            // PV node (position)
             alpha = score;
 
             // write PV move
@@ -3262,7 +3257,23 @@ static inline int negamax(int alpha, int beta, int depth) {
             }
             
             // adjust PV length
-            pv_length[ply] = pv_length[ply + 1];  
+            pv_length[ply] = pv_length[ply + 1];
+            
+            // fail-hard beta cutoff
+            if (score >= beta) {
+                // store hash entry with the score equal to beta
+                write_hash_entry(beta, depth, hash_flag_beta);
+            
+                // on quiet moves
+                if (get_move_capture(move_list.moves[count]) == 0) {
+                    // store killer moves
+                    killer_moves[1][ply] = killer_moves[0][ply];
+                    killer_moves[0][ply] = move_list.moves[count];
+                }
+                
+                // node (position) fails high
+                return beta;
+            }            
         }
     }
     
@@ -3282,7 +3293,7 @@ static inline int negamax(int alpha, int beta, int depth) {
     // store hash entry with the score equal to alpha
     write_hash_entry(alpha, depth, hash_flag);
     
-    // node (move) fails low
+    // node (position) fails low
     return alpha;
 }
 
@@ -3306,9 +3317,6 @@ void search_position(int depth) {
     memset(history_moves, 0, sizeof(history_moves));
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
-
-    // clear hash table
-    clear_hash_table();
     
     // define initial alpha beta bounds
     int alpha = -50000;
@@ -3659,6 +3667,9 @@ void uci_loop() {
             // parse UCI "ucinewgame" command
             // call parse position function
             parse_position("position startpos");
+
+            // clear hash table
+            clear_hash_table();
         } else if (strncmp(input, "go", 2) == 0) {
             // parse UCI "go" command
             // call parse go function
@@ -3699,6 +3710,9 @@ void init_all() {
 
     // init random keys for hashing purposes
     init_random_keys();
+
+    // clear hash table
+    clear_hash_table();
 }
 
 /**********************************\
@@ -3719,9 +3733,14 @@ int main() {
     // if debugging
     if (debug) {
         // parse fen
-        parse_fen("4k3/Q7/8/4K3/8/8/8/8 w - - ");
+        // parse_fen("4k3/Q7/8/4K3/8/8/8/8 w - - ");
+        parse_fen(start_position);
         print_board();
-        search_position(15);
+        search_position(10);
+        
+        make_move(pv_table[0][0], all_moves);
+        
+        search_position(10);
     } else {
         // connect to the GUI
         uci_loop();
