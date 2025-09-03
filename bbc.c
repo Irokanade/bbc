@@ -2778,21 +2778,18 @@ static inline int read_hash_entry(int alpha, int beta, int depth) {
             // match the exact (PV node) score 
             if (hash_entry->flag == hash_flag_exact) {
                 // return exact (PV node) score
-                printf("exact score: "); 
                 return hash_entry->score;
             }
             
             // match alpha (fail-low node) score
             if ((hash_entry->flag == hash_flag_alpha) && (hash_entry->score <= alpha)) {
                 // return alpha (fail-low node) score
-                printf("alpha score: "); 
                 return alpha;
             }
             
             // match beta (fail-high node) score
             if ((hash_entry->flag == hash_flag_beta) && (hash_entry->score >= beta)) {
                 // return beta (fail-high node) score
-                printf(" beta score: "); 
                 return beta;
             }
         }
@@ -3038,6 +3035,19 @@ const int reduction_limit = 3;
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
+    // variable to store current move's score (from the static evaluation perspective)
+    int score;
+    
+    // define hash flag
+    int hash_flag = hash_flag_alpha;
+    
+    // read hash entry
+    if ((score = read_hash_entry(alpha, beta, depth)) != no_hash_entry) {
+        // if the move has already been searched (hence has a value)
+        // we just return the score for this move without searching it
+        return score;
+    }
+
     // every 2047 nodes
     if((nodes & 2047 ) == 0) {
         // "listen" to the GUI/user input
@@ -3088,7 +3098,7 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         /* search moves with reduced depth to find beta cutoffs
            depth - 1 - R where R is a reduction limit */
-        int score = -negamax(-beta, -beta + 1, depth - 1 - 2);
+        score = -negamax(-beta, -beta + 1, depth - 1 - 2);
         
         // restore board state
         take_back();
@@ -3142,9 +3152,6 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // increment legal moves
         ++legal_moves;
-        
-        // variable to store current move's score (from the static evaluation perspective)
-        int score;
         
         // full depth search
         if (moves_searched == 0) {
@@ -3208,6 +3215,9 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // fail-hard beta cutoff
         if (score >= beta) {
+            // store hash entry with the score equal to beta
+            write_hash_entry(beta, depth, hash_flag_beta);
+
             // on quiet moves
             if (get_move_capture(move_list.moves[count]) == 0) {
                 // store killer moves
@@ -3221,6 +3231,10 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // found a better move
         if (score > alpha) {
+            // switch hash flag from storing score for fail-low node
+            // to the one storing score for PV node
+            hash_flag = hash_flag_exact;
+
             // on quiet moves
             if (get_move_capture(move_list.moves[count]) == 0) {
                 // store history moves
@@ -3256,6 +3270,9 @@ static inline int negamax(int alpha, int beta, int depth) {
             return 0;
         }
     }
+
+    // store hash entry with the score equal to alpha
+    write_hash_entry(alpha, depth, hash_flag);
     
     // node (move) fails low
     return alpha;
@@ -3311,7 +3328,7 @@ void search_position(int depth) {
         alpha = score - 50;
         beta = score + 50;
         
-        printf("info score cp %d depth %d nodes %ld pv ", score, current_depth, nodes);
+        printf("info score cp %d depth %d nodes %ld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
         
         // loop over the moves within a PV line
         for (int count = 0; count < pv_length[0]; ++count) {
@@ -3691,21 +3708,9 @@ int main() {
     // if debugging
     if (debug) {
         // parse fen
-        parse_fen(start_position);
+        parse_fen(tricky_position);
         print_board();
-        //search_position(7);
-        
-        // clear hash table
-        clear_hash_table();
-        
-        // write example entry to hash table
-        write_hash_entry(45, 1, hash_flag_beta);
-
-        // read score from hash table
-        int score = read_hash_entry(20, 30, 1);
-
-        // print score from hash entry
-        printf("%d\n", score);
+        search_position(7);
     } else {
         // connect to the GUI
         uci_loop();
