@@ -3089,12 +3089,20 @@ static inline int negamax(int alpha, int beta, int depth) {
     if (depth >= 3 && in_check == 0 && ply) {
         // preserve board state
         copy_board();
-        
-        // switch the side, literally giving opponent an extra move to make
-        side ^= 1;
+
+        // hash enpassant if available
+        if (enpassant != no_sq) {
+            hash_key ^= enpassant_keys[enpassant];
+        }
         
         // reset enpassant capture square
         enpassant = no_sq;
+
+        // switch the side, literally giving opponent an extra move to make
+        side ^= 1;
+
+        // hash the side
+        hash_key ^= side_key;
         
         /* search moves with reduced depth to find beta cutoffs
            depth - 1 - R where R is a reduction limit */
@@ -3298,6 +3306,9 @@ void search_position(int depth) {
     memset(history_moves, 0, sizeof(history_moves));
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
+
+    // clear hash table
+    clear_hash_table();
     
     // define initial alpha beta bounds
     int alpha = -50000;
@@ -3708,9 +3719,9 @@ int main() {
     // if debugging
     if (debug) {
         // parse fen
-        parse_fen(tricky_position);
+        parse_fen("4k3/Q7/8/4K3/8/8/8/8 w - - ");
         print_board();
-        search_position(7);
+        search_position(15);
     } else {
         // connect to the GUI
         uci_loop();
