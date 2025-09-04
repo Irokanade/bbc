@@ -1818,8 +1818,7 @@ static inline int make_move(int move, int move_flag) {
         // handle pawn promotions
         if (promoted_piece) {
             // erase the pawn from the target square
-            //pop_bit(bitboards[(side == white) ? P : p], target_square);
-            
+
             // white to move
             if (side == white) {
                 // erase the pawn from the target square
@@ -1846,8 +1845,6 @@ static inline int make_move(int move, int move_flag) {
         // handle enpassant captures
         if (enpass) {
             // erase the pawn depending on side to move
-            // (side == white) ? pop_bit(bitboards[p], target_square + 8) :
-            //                   pop_bit(bitboards[P], target_square - 8);
 
             // white to move
             if (side == white) {
@@ -1877,8 +1874,6 @@ static inline int make_move(int move, int move_flag) {
         // handle double pawn push
         if (double_push) {
             // set enpassant aquare depending on side to move
-            //(side == white) ? (enpassant = target_square + 8) :
-            //                  (enpassant = target_square - 8);
                               
             // white to move
             if (side == white) {
@@ -3074,9 +3069,15 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // define hash flag
     int hash_flag = hash_flag_alpha;
+
+    // a hack by Pedro Castro to figure out whether the current node is PV node or not 
+    int pv_node = beta - alpha > 1;
     
-    // read hash entry
-    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry) {
+    /* 
+    read hash entry if we're not in a root ply and hash entry is available
+    and current node is not a PV node
+    */
+    if (ply && (score = read_hash_entry(alpha, beta, depth)) != no_hash_entry && pv_node == 0) {
         // if the move has already been searched (hence has a value)
         // we just return the score for this move without searching it
         return score;
@@ -3376,8 +3377,14 @@ void search_position(int depth) {
         alpha = score - 50;
         beta = score + 50;
         
-        printf("info score cp %d depth %d nodes %ld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
-        
+        if (score > -mate_value && score < -mate_score) {
+            printf("info score mate %d depth %d nodes %ld time %d pv ", -(score + mate_value) / 2 - 1, current_depth, nodes, get_time_ms() - starttime);
+        } else if (score > mate_score && score < mate_value) {
+            printf("info score mate %d depth %d nodes %ld time %d pv ", (mate_value - score) / 2 + 1, current_depth, nodes, get_time_ms() - starttime);   
+        } else {
+            printf("info score cp %d depth %d nodes %ld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
+        }
+
         // loop over the moves within a PV line
         for (int count = 0; count < pv_length[0]; ++count) {
             // print PV move
@@ -3692,6 +3699,9 @@ void uci_loop() {
             // parse UCI "position" command
             // call parse position function
             parse_position(input);
+
+            // clear hash table
+            clear_hash_table();
         } else if (strncmp(input, "ucinewgame", 10) == 0) {
             // parse UCI "ucinewgame" command
             // call parse position function
