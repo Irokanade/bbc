@@ -29,6 +29,7 @@
 #define tricky_position "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 "
 #define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
 #define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
+#define repetitions "2r3k1/R7/8/1R6/8/8/P4KPP/8 w - - 0 40 "
 
 // board squares
 enum {
@@ -238,6 +239,12 @@ int castle;
 
 // "almost" unique position identifier aka hash key or position key
 U64 hash_key;
+
+// positions repetition table
+U64 repetition_table[150];
+
+// repetition index
+int repetition_index;
 
 /**********************************\
  ==================================
@@ -2970,6 +2977,21 @@ void print_move_scores(moves *move_list) {
     }
 }
 
+// position repetition detection
+static inline int is_repetition() {
+    // loop over repetition indicies range
+    for (int index = 0; index < repetition_index; ++index) {
+        // if we found the hash key same with a current
+        if (repetition_table[index] == hash_key) {
+            // we found a repetition
+            return 1;
+        }
+    }
+    
+    // if no repetition found
+    return 0;
+}
+
 // quiescence search
 static inline int quiescence(int alpha, int beta) {
     // every 2047 nodes
@@ -3018,11 +3040,18 @@ static inline int quiescence(int alpha, int beta) {
         
         // increment ply
         ++ply;
+
+        // increment repetition index & store hash key
+        ++repetition_index;
+        repetition_table[repetition_index] = hash_key;
         
         // make sure to make only legal moves
         if (make_move(move_list.moves[count], only_captures) == 0) {
             // decrement ply
             --ply;
+
+            // decrement repetition index
+            repetition_index--;
             
             // skip to next move
             continue;
@@ -3033,6 +3062,9 @@ static inline int quiescence(int alpha, int beta) {
         
         // decrement ply
         --ply;
+
+        // decrement repetition index
+        repetition_index--;
 
         // take move back
         take_back();
@@ -3069,6 +3101,12 @@ static inline int negamax(int alpha, int beta, int depth) {
     
     // define hash flag
     int hash_flag = hash_flag_alpha;
+
+    // if position repetition occurs
+    if (ply && is_repetition()) {
+        // return draw score
+        return 0;
+    }
 
     // a hack by Pedro Castro to figure out whether the current node is PV node or not 
     int pv_node = beta - alpha > 1;
@@ -3127,6 +3165,10 @@ static inline int negamax(int alpha, int beta, int depth) {
 
         // increment ply
         ++ply;
+
+        // increment repetition index & store hash key
+        ++repetition_index;
+        repetition_table[repetition_index] = hash_key;
         
         // hash enpassant if available
         if (enpassant != no_sq) {
@@ -3148,6 +3190,9 @@ static inline int negamax(int alpha, int beta, int depth) {
 
         // decrement ply
         --ply;
+
+        // decrement repetition index
+        repetition_index--;
             
         // restore board state
         take_back();
@@ -3189,11 +3234,18 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // increment ply
         ++ply;
+
+        // increment repetition index & store hash key
+        ++repetition_index;
+        repetition_table[repetition_index] = hash_key;
         
         // make sure to make only legal moves
         if (make_move(move_list.moves[count], all_moves) == 0) {
             // decrement ply
             --ply;
+
+            // decrement repetition index
+            repetition_index--;
             
             // skip to next move
             continue;
@@ -3250,6 +3302,9 @@ static inline int negamax(int alpha, int beta, int depth) {
         
         // decrement ply
         --ply;
+
+        // decrement repetition index
+        repetition_index--;
 
         // take move back
         take_back();
@@ -3773,13 +3828,13 @@ int main() {
     if (debug) {
         // parse fen
         // parse_fen("4k3/Q7/8/4K3/8/8/8/8 w - - ");
-        parse_fen(start_position);
+        parse_fen(repetitions);
         print_board();
         search_position(10);
         
-        make_move(pv_table[0][0], all_moves);
+        // make_move(pv_table[0][0], all_moves);
         
-        search_position(10);
+        // search_position(10);
     } else {
         // connect to the GUI
         uci_loop();
