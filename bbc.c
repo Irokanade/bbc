@@ -241,10 +241,14 @@ int castle;
 U64 hash_key;
 
 // positions repetition table
-U64 repetition_table[150];
+// 1000 is a number of plies (500 moves) in the entire game
+U64 repetition_table[1000];
 
 // repetition index
 int repetition_index;
+
+// half move counter
+int ply;
 
 /**********************************\
  ==================================
@@ -703,6 +707,14 @@ void parse_fen(char *fen) {
     side = 0;
     enpassant = no_sq;
     castle = 0;
+
+    // reset repetition index
+    repetition_index = 0;
+    
+    // reset repetition table
+    memset(repetition_table, 0ULL, sizeof(repetition_table));
+    
+    printf("ply: %d\n", ply);
     
     // loop over board ranks
     for (int rank = 0; rank < 8; ++rank) {
@@ -2730,9 +2742,6 @@ int pv_table[max_ply][max_ply];
 int follow_pv;
 int score_pv;
 
-// half move counter
-int ply;
-
 /**********************************\
  ==================================
  
@@ -3587,6 +3596,10 @@ void parse_position(char *command) {
                 // break out of the loop
                 break;
             }
+
+            // increment repetition index & store hash key
+            ++repetition_index;
+            repetition_table[repetition_index] = hash_key;
             
             // make move on the chess board
             make_move(move, all_moves);
