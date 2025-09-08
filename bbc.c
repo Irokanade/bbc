@@ -2405,7 +2405,7 @@ static inline void generate_moves(moves *move_list) {
 \**********************************/
 
 // leaf nodes (number of positions reached during the test of the move generator at a given depth)
-long nodes;
+U64 nodes;
 
 // perft driver
 static inline void perft_driver(int depth) {
@@ -2486,7 +2486,7 @@ void perft_test(int depth) {
     
     // print results
     printf("\n    Depth: %d\n", depth);
-    printf("    Nodes: %ld\n", nodes);
+    printf("    Nodes: %lld\n", nodes);
     printf("     Time: %ld\n\n", get_time_ms() - start);
 }
 
@@ -2655,6 +2655,9 @@ const int semi_open_file_score = 10;
 
 // open file score
 const int open_file_score = 15;
+
+// king's shield bonus
+const int king_shield_bonus = 5;
 
 // set file or rank mask
 U64 set_file_rank_mask(int file_number, int rank_number) {
@@ -2837,9 +2840,15 @@ static inline int evaluate() {
                     }
 
                     break;
-
                 case N: score += knight_score[square]; break;
-                case B: score += bishop_score[square]; break;
+                case B:
+                    // positional scores
+                    score += bishop_score[square];
+                    
+                    // mobility
+                    score += count_bits(get_bishop_attacks(square, occupancies[both]));
+                    
+                    break;
                 case R:
                     // positional score
                     score += rook_score[square];
@@ -2857,23 +2866,30 @@ static inline int evaluate() {
                     }
                     
                     break;
-
+                case Q:
+                    // mobility
+                    score += count_bits(get_queen_attacks(square, occupancies[both]));
+                    break;
                 case K:
                     // posirional score
                     score += king_score[square];
                     
                     // semi open file
-                    if ((bitboards[P] & file_masks[square]) == 0)
+                    if ((bitboards[P] & file_masks[square]) == 0) {
                         // add semi open file penalty
                         score -= semi_open_file_score;
+                    }
                     
                     // open file
-                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
                         // add semi open file penalty
                         score -= open_file_score;
+                    }
+                    
+                    // king safety bonus
+                    score += count_bits(king_attacks[square] & occupancies[white]) * king_shield_bonus;
                     
                     break;
-
                 // evaluate black pieces
                 case p:
                     // positional score
@@ -2900,7 +2916,6 @@ static inline int evaluate() {
                     }
 
                     break;
-
                 case n: score -= knight_score[mirror_score[square]]; break;
                 case b: score -= bishop_score[mirror_score[square]]; break;
                  case r:
@@ -2920,7 +2935,10 @@ static inline int evaluate() {
                     }
                     
                     break;
-
+                case q:
+                    // mobility
+                    score -= count_bits(get_queen_attacks(square, occupancies[both]));
+                    break;
                 case k:
                     // positional score
                     score -= king_score[mirror_score[square]];
@@ -2936,6 +2954,9 @@ static inline int evaluate() {
                         // add semi open file penalty
                         score += open_file_score;
                     }
+
+                    // king safety bonus
+                    score -= count_bits(king_attacks[square] & occupancies[black]) * king_shield_bonus;
                     
                     break;
             }
@@ -3738,11 +3759,11 @@ void search_position(int depth) {
         beta = score + 50;
         
         if (score > -mate_value && score < -mate_score) {
-            printf("info score mate %d depth %d nodes %ld time %d pv ", -(score + mate_value) / 2 - 1, current_depth, nodes, get_time_ms() - starttime);
+            printf("info score mate %d depth %d nodes %lld time %d pv ", -(score + mate_value) / 2 - 1, current_depth, nodes, get_time_ms() - starttime);
         } else if (score > mate_score && score < mate_value) {
-            printf("info score mate %d depth %d nodes %ld time %d pv ", (mate_value - score) / 2 + 1, current_depth, nodes, get_time_ms() - starttime);   
+            printf("info score mate %d depth %d nodes %lld time %d pv ", (mate_value - score) / 2 + 1, current_depth, nodes, get_time_ms() - starttime);   
         } else {
-            printf("info score cp %d depth %d nodes %ld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
+            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
         }
 
         // loop over the moves within a PV line
