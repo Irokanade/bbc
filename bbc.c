@@ -2553,13 +2553,12 @@ const int knight_score[64] = {
 const int bishop_score[64] = {
      0,   0,   0,   0,   0,   0,   0,   0,
      0,   0,   0,   0,   0,   0,   0,   0,
-     0,   0,   0,  10,  10,   0,   0,   0,
+     0,  20,   0,  10,  10,   0,  20,   0,
      0,   0,  10,  20,  20,  10,   0,   0,
      0,   0,  10,  20,  20,  10,   0,   0,
      0,  10,   0,   0,   0,   0,  10,   0,
      0,  30,   0,   0,   0,   0,  30,   0,
      0,   0, -10,   0,   0, -10,   0,   0
-
 };
 
 // rook positional score
@@ -2629,6 +2628,27 @@ U64 white_passed_masks[64];
 
 // black passed pawn masks [square]
 U64 black_passed_masks[64];
+
+// extract rank from a square [square]
+const int get_rank[64] = {
+    7, 7, 7, 7, 7, 7, 7, 7,
+    6, 6, 6, 6, 6, 6, 6, 6,
+    5, 5, 5, 5, 5, 5, 5, 5,
+    4, 4, 4, 4, 4, 4, 4, 4,
+    3, 3, 3, 3, 3, 3, 3, 3,
+    2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 1, 1, 1, 1, 1,
+	0, 0, 0, 0, 0, 0, 0, 0
+};
+
+// double pawns penalty
+const int double_pawn_penalty = -10;
+
+// isolated pawn penalty
+const int isolated_pawn_penalty = -10;
+
+// passed pawn bonus
+const int passed_pawn_bonus[8] = { 0, 10, 30, 50, 75, 100, 150, 200 }; 
 
 // set file or rank mask
 U64 set_file_rank_mask(int file_number, int rank_number) {
@@ -2763,6 +2783,9 @@ static inline int evaluate() {
     // init piece & square
     int piece;
     int square;
+
+    // penalties
+    int double_pawns = 0;
     
     // loop over piece bitboards
     for (int bb_piece = P; bb_piece <= k; ++bb_piece) {
@@ -2783,14 +2806,64 @@ static inline int evaluate() {
             // score positional piece scores
             switch (piece) {
                 // evaluate white pieces
-                case P: score += pawn_score[square]; break;
+                case P: 
+                    // positional score
+                    score += pawn_score[square];
+                    
+                    // double pawn penalty
+                    double_pawns = count_bits(bitboards[P] & file_masks[square]);
+                    
+                    // on double pawns (tripple, etc)
+                    if (double_pawns > 1) {
+                        score += double_pawns * double_pawn_penalty;
+                    }
+                    
+                    // on isolated pawn
+                    if ((bitboards[P] & isolated_masks[square]) == 0) {
+                        // give an isolated pawn penalty
+                        score += isolated_pawn_penalty;
+                    }
+                    
+                    // on passed pawn
+                    if ((white_passed_masks[square] & bitboards[p]) == 0) {
+                        // give passed pawn bonus
+                        score += passed_pawn_bonus[get_rank[square]];
+                    }
+
+                    break;
+
                 case N: score += knight_score[square]; break;
                 case B: score += bishop_score[square]; break;
                 case R: score += rook_score[square]; break;
                 case K: score += king_score[square]; break;
 
                 // evaluate black pieces
-                case p: score -= pawn_score[mirror_score[square]]; break;
+                case p:
+                    // positional score
+                    score -= pawn_score[mirror_score[square]];
+
+                    // double pawn penalty
+                    double_pawns = count_bits(bitboards[p] & file_masks[square]);
+                    
+                    // on double pawns (tripple, etc)
+                    if (double_pawns > 1) {
+                        score -= double_pawns * double_pawn_penalty;
+                    }
+                    
+                    // on isolated pawnd
+                    if ((bitboards[p] & isolated_masks[square]) == 0) {
+                        // give an isolated pawn penalty
+                        score -= isolated_pawn_penalty;
+                    }
+                    
+                    // on passed pawn
+                    if ((black_passed_masks[square] & bitboards[P]) == 0) {
+                        // give passed pawn bonus
+                        score -= passed_pawn_bonus[get_rank[mirror_score[square]]];
+                    }
+
+                    break;
+
                 case n: score -= knight_score[mirror_score[square]]; break;
                 case b: score -= bishop_score[mirror_score[square]]; break;
                 case r: score -= rook_score[mirror_score[square]]; break;
@@ -3995,15 +4068,10 @@ int main() {
     
     // if debugging
     if (debug) {
-        // parse fen
-        // parse_fen("4k3/Q7/8/4K3/8/8/8/8 w - - ");
-        parse_fen(repetitions);
+        parse_fen("k7/2P5/1P6/3Pp3/3pP3/6p1/5p2/K7 w - - 0 1 ");
         print_board();
-        // search_position(10);
-        
-        // make_move(pv_table[0][0], all_moves);
-        
-        // search_position(10);
+        printf("score: %d\n", evaluate());
+        //search_position(10);
     } else {
         // connect to the GUI
         uci_loop();
