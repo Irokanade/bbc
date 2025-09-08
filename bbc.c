@@ -2650,6 +2650,12 @@ const int isolated_pawn_penalty = -10;
 // passed pawn bonus
 const int passed_pawn_bonus[8] = { 0, 10, 30, 50, 75, 100, 150, 200 }; 
 
+// semi open file score
+const int semi_open_file_score = 10;
+
+// open file score
+const int open_file_score = 15;
+
 // set file or rank mask
 U64 set_file_rank_mask(int file_number, int rank_number) {
     // file or rank mask
@@ -2834,8 +2840,39 @@ static inline int evaluate() {
 
                 case N: score += knight_score[square]; break;
                 case B: score += bishop_score[square]; break;
-                case R: score += rook_score[square]; break;
-                case K: score += king_score[square]; break;
+                case R:
+                    // positional score
+                    score += rook_score[square];
+                    
+                    // semi open file
+                    if ((bitboards[P] & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score += semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score += open_file_score;
+                    }
+                    
+                    break;
+
+                case K:
+                    // posirional score
+                    score += king_score[square];
+                    
+                    // semi open file
+                    if ((bitboards[P] & file_masks[square]) == 0)
+                        // add semi open file penalty
+                        score -= semi_open_file_score;
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0)
+                        // add semi open file penalty
+                        score -= open_file_score;
+                    
+                    break;
 
                 // evaluate black pieces
                 case p:
@@ -2866,8 +2903,41 @@ static inline int evaluate() {
 
                 case n: score -= knight_score[mirror_score[square]]; break;
                 case b: score -= bishop_score[mirror_score[square]]; break;
-                case r: score -= rook_score[mirror_score[square]]; break;
-                case k: score -= king_score[mirror_score[square]]; break;
+                 case r:
+                    // positional score
+                    score -= rook_score[mirror_score[square]];
+                    
+                    // semi open file
+                    if ((bitboards[p] & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score -= semi_open_file_score;
+                    }
+                    
+                    // semi open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score -= open_file_score;
+                    }
+                    
+                    break;
+
+                case k:
+                    // positional score
+                    score -= king_score[mirror_score[square]];
+                    
+                    // semi open file
+                    if ((bitboards[p] & file_masks[square]) == 0) {
+                        // add semi open file penalty
+                        score += semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add semi open file penalty
+                        score += open_file_score;
+                    }
+                    
+                    break;
             }
             
             // pop ls1b
