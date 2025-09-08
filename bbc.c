@@ -3067,8 +3067,8 @@ int score_pv;
  ==================================
 \**********************************/
 
-// hash table size
-#define hash_size 0x400000
+// hash table size (would be around 20MB)
+#define hash_size 800000
 
 // no hash entry found constant
 #define no_hash_entry 100000
@@ -4018,7 +4018,12 @@ void parse_go(char *command) {
 
         // set up timing
         uci_time /= movestogo;
-        uci_time -= 50;
+
+        // "illegal" (empty) move bug fix
+        if (uci_time > 1500) {
+            uci_time -= 50;
+        }
+
         stoptime = starttime + uci_time + inc;
     }
 
