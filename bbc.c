@@ -2886,7 +2886,18 @@ static inline int get_game_phase_score() {
 static inline int evaluate() {
     // get game phase score
     int game_phase_score = get_game_phase_score();
-    printf("game phase score: %d\n", game_phase_score);
+    
+    // game phase (opening, middle game, endgame)
+    int game_phase = -1;
+    
+    // pick up game phase based on game phase score
+    if (game_phase_score > opening_phase_score) {
+        game_phase = opening;
+    } else if (game_phase_score < endgame_phase_score) {
+        game_phase = endgame;
+    } else {
+        game_phase = middlegame;
+    }
 
     // static evaluation score
     int score = 0;
@@ -2914,13 +2925,47 @@ static inline int evaluate() {
             // init square
             square = get_ls1b_index(bitboard);
             
-            // score material weights
-            // score += material_score[piece];
+            /*          
+                Now in order to calculate interpolated score
+                for a given game phase we use this formula
+                (same for material and positional scores):
+                
+                (
+                  score_opening * game_phase_score + 
+                  score_endgame * (opening_phase_score - game_phase_score)
+                ) / opening_phase_score
+            
+                E.g. the score for pawn on d4 at phase say 5000 would be
+                interpolated_score = (12 * 5000 + (-7) * (6192 - 5000)) / 6192 = 8,342377261
+            */ 
+            
+            // interpolate scores in middle_game
+            if (game_phase == middlegame) {
+                score += (
+                    material_score[opening][piece] * game_phase_score +
+                    material_score[endgame][piece] * (opening_phase_score - game_phase_score)
+                ) / opening_phase_score;
+            } else {
+                // score material weights with pure scores in opening or endgame
+                score += material_score[game_phase][piece];
+            }
             
             // score positional piece scores
-            /*switch (piece) {
-                // evaluate white pieces
-                case P: 
+            switch (piece) {
+                // evaluate white pawns
+                case P:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][PAWN][square] * game_phase_score +
+                            positional_score[endgame][PAWN][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][PAWN][square];
+                    }
+
+                    /* 
                     // positional score
                     score += pawn_score[square];
                     
@@ -2943,18 +2988,56 @@ static inline int evaluate() {
                         // give passed pawn bonus
                         score += passed_pawn_bonus[get_rank[square]];
                     }
-
+                    */
                     break;
-                case N: score += knight_score[square]; break;
+                
+                // evaluate white knights
+                case N:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][KNIGHT][square] * game_phase_score +
+                            positional_score[endgame][KNIGHT][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][KNIGHT][square];
+                    }
+                    
+                    break;
+                
+                // evaluate white bishops
                 case B:
-                    // positional scores
-                    score += bishop_score[square];
+                    /// interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][BISHOP][square] * game_phase_score +
+                            positional_score[endgame][BISHOP][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][BISHOP][square];
+                    }
                     
                     // mobility
-                    score += count_bits(get_bishop_attacks(square, occupancies[both]));
+                    //score += count_bits(get_bishop_attacks(square, occupancies[both]));
                     
                     break;
+                
+                // evaluate white rooks
                 case R:
+                    /// interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][ROOK][square] * game_phase_score +
+                            positional_score[endgame][ROOK][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][ROOK][square];
+                    }
+                    
+                    /* 
                     // positional score
                     score += rook_score[square];
                     
@@ -2969,13 +3052,40 @@ static inline int evaluate() {
                         // add semi open file bonus
                         score += open_file_score;
                     }
-                    
+                    */
                     break;
+                
+                // evaluate white queens
                 case Q:
+                    /// interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][QUEEN][square] * game_phase_score +
+                            positional_score[endgame][QUEEN][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][QUEEN][square];
+                    }
+                    
                     // mobility
-                    score += count_bits(get_queen_attacks(square, occupancies[both]));
+                    //score += count_bits(get_queen_attacks(square, occupancies[both]));
                     break;
+                
+                // evaluate white king
                 case K:
+                    /// interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score += (
+                            positional_score[opening][KING][square] * game_phase_score +
+                            positional_score[endgame][KING][square] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score += positional_score[game_phase][KING][square];
+                    }
+                    
+                    /* 
                     // posirional score
                     score += king_score[square];
                     
@@ -2993,10 +3103,23 @@ static inline int evaluate() {
                     
                     // king safety bonus
                     score += count_bits(king_attacks[square] & occupancies[white]) * king_shield_bonus;
-                    
+                    */
                     break;
-                // evaluate black pieces
+
+                // evaluate black pawns
                 case p:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][PAWN][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][PAWN][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score -= positional_score[game_phase][PAWN][mirror_score[square]];
+                    }
+                    
+                    /* 
                     // positional score
                     score -= pawn_score[mirror_score[square]];
 
@@ -3019,11 +3142,55 @@ static inline int evaluate() {
                         // give passed pawn bonus
                         score -= passed_pawn_bonus[get_rank[mirror_score[square]]];
                     }
-
+                    */
                     break;
-                case n: score -= knight_score[mirror_score[square]]; break;
-                case b: score -= bishop_score[mirror_score[square]]; break;
-                 case r:
+                
+                // evaluate black knights
+                case n:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][KNIGHT][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][KNIGHT][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score -= positional_score[game_phase][KNIGHT][mirror_score[square]];
+                    }
+                    
+                    break;
+                
+                // evaluate black bishops
+                case b:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][BISHOP][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][BISHOP][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {    
+                        // score material weights with pure scores in opening or endgame
+                        score -= positional_score[game_phase][BISHOP][mirror_score[square]];
+                    }
+                    
+                    // mobility
+                    //score -= count_bits(get_bishop_attacks(square, occupancies[both]));
+                    break;
+                
+                // evaluate black rooks
+                case r:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][ROOK][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][ROOK][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score -= positional_score[game_phase][ROOK][mirror_score[square]];
+                    }
+                    
+                    /* 
                     // positional score
                     score -= rook_score[mirror_score[square]];
                     
@@ -3038,16 +3205,40 @@ static inline int evaluate() {
                         // add semi open file bonus
                         score -= open_file_score;
                     }
-                    
+                    */
                     break;
+                
+                // evaluate black queens
                 case q:
-                    // mobility
-                    score -= count_bits(get_queen_attacks(square, occupancies[both]));
-                    break;
-                case k:
-                    // positional score
-                    score -= king_score[mirror_score[square]];
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][QUEEN][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][QUEEN][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame
+                        score -= positional_score[game_phase][QUEEN][mirror_score[square]];
+                    }
                     
+                    // mobility
+                    //score -= count_bits(get_queen_attacks(square, occupancies[both]));
+                    break;
+                
+                // evaluate black king
+                case k:
+                    // interpolate scores in middle_game
+                    if (game_phase == middlegame) {
+                        score -= (
+                            positional_score[opening][KING][mirror_score[square]] * game_phase_score +
+                            positional_score[endgame][KING][mirror_score[square]] * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score;
+                    } else {
+                        // score material weights with pure scores in opening or endgame 
+                        score -= positional_score[game_phase][KING][mirror_score[square]];
+                    }
+                    
+                    /* 
                     // semi open file
                     if ((bitboards[p] & file_masks[square]) == 0) {
                         // add semi open file penalty
@@ -3062,9 +3253,9 @@ static inline int evaluate() {
 
                     // king safety bonus
                     score -= count_bits(king_attacks[square] & occupancies[black]) * king_shield_bonus;
-                    
+                    */
                     break;
-            }*/
+            }
             
             // pop ls1b
             pop_bit(bitboard, square);
@@ -4276,7 +4467,7 @@ int main() {
 
         parse_fen(start_position);
         print_board();
-        evaluate();
+        printf("score: %d\n", evaluate());
 
     } else {
         // connect to the GUI
