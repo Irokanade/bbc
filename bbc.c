@@ -3366,8 +3366,8 @@ int score_pv;
  ==================================
 \**********************************/
 
-// hash table size (would be around 20MB)
-#define hash_size 800000
+// number hash table entries
+int hash_entries = 0;
 
 // no hash entry found constant
 #define no_hash_entry 100000
@@ -3386,17 +3386,54 @@ typedef struct {
 } tt;               // transposition table (TT aka hash table)
 
 // define TT instance
-tt hash_table[hash_size];
+tt *hash_table = NULL;
 
 // clear TT (hash table)
 void clear_hash_table() {
+    // init hash table entry pointer
+    tt *hash_entry;
+
     // loop over TT elements
-    for (int index = 0; index < hash_size; ++index) {
+    for (hash_entry = hash_table; hash_entry < hash_table + hash_entries; ++hash_entry) {
         // reset TT inner fields
-        hash_table[index].hash_key = 0;
-        hash_table[index].depth = 0;
-        hash_table[index].flag = 0;
-        hash_table[index].score = 0;
+        hash_entry->hash_key = 0;
+        hash_entry->depth = 0;
+        hash_entry->flag = 0;
+        hash_entry->score = 0;
+    }
+}
+
+// dynamically allocate memory for hash table
+void init_hash_table(int mb) {
+    // init hash size
+    int hash_size = 0x100000 * mb;
+    
+    // init number of hash entries
+    hash_entries =  hash_size / sizeof(tt);
+
+    // free hash table if not empty
+    if (hash_table != NULL) {
+        printf("    Clearing hash memory...\n");
+          
+        // free hash table dynamic memory
+        free(hash_table);
+    }
+     
+    // allocate memory
+    hash_table = (tt *) malloc(hash_entries * sizeof(tt));
+
+    // if allocation has failed
+    if (hash_table == NULL) {
+        printf("    Couldn't allocate memory for hash table, tryinr %dMB...", mb / 2);
+        
+        // try to allocate with half size
+        init_hash_table(mb / 2);
+    } else {
+        // if allocation succeeded
+        // clear hash table
+        clear_hash_table();
+        
+        printf("    Hash table is initialied with %d entries\n", hash_entries);
     }
 }
 
@@ -3404,7 +3441,7 @@ void clear_hash_table() {
 static inline int read_hash_entry(int alpha, int beta, int depth) {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
-    tt *hash_entry = &hash_table[hash_key % hash_size];
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
     
     // make sure we're dealing with the exact position we need
     if (hash_entry->hash_key == hash_key) {
@@ -3450,7 +3487,7 @@ static inline int read_hash_entry(int alpha, int beta, int depth) {
 static inline void write_hash_entry(int score, int depth, int hash_flag) {
     // create a TT instance pointer to particular hash entry storing
     // the scoring data for the current board position if available
-    tt *hash_entry = &hash_table[hash_key % hash_size];
+    tt *hash_entry = &hash_table[hash_key % hash_entries];
 
     // store score independent from the actual path
     // from root node (position) to current node (position)
@@ -4368,6 +4405,12 @@ void parse_go(char *command) {
 
 // main UCI loop
 void uci_loop() {
+    // max hash MB
+    int max_hash = 128;
+    
+    // default MB value
+    int mb = 64;
+
     // reset STDIN & STDOUT buffers
     setbuf(stdin, NULL);
     setbuf(stdout, NULL);
@@ -4378,6 +4421,7 @@ void uci_loop() {
     // print engine info
     printf("id name BBC %s\n", version);
     printf("id author Irokanade\n");
+    printf("option name Hash type spin default 64 min 4 max %d\n", max_hash);
     printf("uciok\n");
     
     // main loop
@@ -4432,6 +4476,22 @@ void uci_loop() {
             printf("id name BBC %s\n", version);
             printf("id author Irokanade\n");
             printf("uciok\n");
+        } else if (!strncmp(input, "setoption name Hash value ", 26)) {			
+            // init MB
+            sscanf(input,"%*s %*s %*s %*s %d", &mb);
+            
+            // adjust MB if going beyond the aloowed bounds
+            if (mb < 4) {
+                mb = 4;
+            }
+
+            if (mb > max_hash) {
+                mb = max_hash;
+            }
+            
+            // set hash table size in MB
+            printf("    Set hash table size to %dMB\n", mb);
+            init_hash_table(mb);
         }
     }
 }
@@ -4459,11 +4519,11 @@ void init_all() {
     // init random keys for hashing purposes
     init_random_keys();
 
-    // clear hash table
-    clear_hash_table();
-
     // init evaluation masks
     init_evaluation_masks();
+
+    // init hash table with default 64 MB
+    init_hash_table(64);
 }
 
 /**********************************\
@@ -4477,25 +4537,12 @@ void init_all() {
 int main() {
     // init all
     init_all();
-
-    // debug mode variable
-    int debug = 1;
     
-    // if debugging
-    if (debug) {
-        // parse_fen("k7/2P5/1P6/3Pp3/3pP3/6p1/5p2/K7 w - - 0 1 ");
-        // print_board();
-        // printf("score: %d\n", evaluate());
-        //search_position(10);
-
-        parse_fen(start_position);
-        print_board();
-        printf("score: %d\n", evaluate());
-
-    } else {
-        // connect to the GUI
-        uci_loop();
-    }
+    // connect to GUI
+    uci_loop();
+    
+    // free hash table memory on exit
+    free(hash_table);
 
     return 0;
 }
