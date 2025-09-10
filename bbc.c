@@ -20,6 +20,9 @@
     #include <sys/select.h>
 #endif
 
+// define version
+#define version "1.0"
+
 // define bitboard data type
 #define U64 unsigned long long
 
@@ -4053,24 +4056,27 @@ void search_position(int depth) {
         // set up the window for the next iteration
         alpha = score - 50;
         beta = score + 50;
-        
-        if (score > -mate_value && score < -mate_score) {
-            printf("info score mate %d depth %d nodes %lld time %d pv ", -(score + mate_value) / 2 - 1, current_depth, nodes, get_time_ms() - starttime);
-        } else if (score > mate_score && score < mate_value) {
-            printf("info score mate %d depth %d nodes %lld time %d pv ", (mate_value - score) / 2 + 1, current_depth, nodes, get_time_ms() - starttime);   
-        } else {
-            printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
-        }
 
-        // loop over the moves within a PV line
-        for (int count = 0; count < pv_length[0]; ++count) {
-            // print PV move
-            print_move(pv_table[0][count]);
-            printf(" ");
+        // if PV is available
+        if (pv_length[0]) {
+            if (score > -mate_value && score < -mate_score) {
+                printf("info score mate %d depth %d nodes %lld time %d pv ", -(score + mate_value) / 2 - 1, current_depth, nodes, get_time_ms() - starttime);
+            } else if (score > mate_score && score < mate_value) {
+                printf("info score mate %d depth %d nodes %lld time %d pv ", (mate_value - score) / 2 + 1, current_depth, nodes, get_time_ms() - starttime);   
+            } else {
+                printf("info score cp %d depth %d nodes %lld time %d pv ", score, current_depth, nodes, get_time_ms() - starttime);
+            }
+
+            // loop over the moves within a PV line
+            for (int count = 0; count < pv_length[0]; ++count) {
+                // print PV move
+                print_move(pv_table[0][count]);
+                printf(" ");
+            }
+            
+            // print new line
+            printf("\n");
         }
-        
-        // print new line
-        printf("\n");
     }
 
     // best move placeholder
@@ -4239,8 +4245,25 @@ void parse_position(char *command) {
 
 */
 
+// reset time control variables
+void reset_time_control() {
+    // reset timing
+    quit = 0;
+    movestogo = 30;
+    movetime = -1;
+    uci_time = -1;
+    inc = 0;
+    starttime = 0;
+    stoptime = 0;
+    timeset = 0;
+    stopped = 0;
+}
+
 // parse UCI "go" command
 void parse_go(char *command) {
+    // reset time control
+    reset_time_control();
+
     // init parameters
     int depth = -1;
 
@@ -4330,7 +4353,7 @@ void parse_go(char *command) {
     }
 
     // print debug info
-    printf("time:%d start:%d stop:%d depth:%d timeset:%d\n",
+    printf("time:%d start:%u stop:%u depth:%d timeset:%d\n",
     uci_time, starttime, stoptime, depth, timeset);
 
     // search position
@@ -4353,8 +4376,8 @@ void uci_loop() {
     char input[2000];
     
     // print engine info
-    printf("id name BBC\n");
-    printf("id name Irokanade\n");
+    printf("id name BBC %s\n", version);
+    printf("id author Irokanade\n");
     printf("uciok\n");
     
     // main loop
@@ -4406,8 +4429,8 @@ void uci_loop() {
         } else if (strncmp(input, "uci", 3) == 0) {
             // parse UCI "uci" command
             // print engine info
-            printf("id name BBC\n");
-            printf("id name Irokanade\n");
+            printf("id name BBC %s\n", version);
+            printf("id author Irokanade\n");
             printf("uciok\n");
         }
     }
