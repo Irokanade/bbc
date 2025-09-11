@@ -2715,10 +2715,12 @@ const int get_rank[64] = {
 };
 
 // double pawns penalty
-const int double_pawn_penalty = -10;
+const int double_pawn_penalty_opening = -5;
+const int double_pawn_penalty_endgame = -10;
 
 // isolated pawn penalty
-const int isolated_pawn_penalty = -10;
+const int isolated_pawn_penalty_opening = -5;
+const int isolated_pawn_penalty_endgame = -10;
 
 // passed pawn bonus
 const int passed_pawn_bonus[8] = { 0, 10, 30, 50, 75, 100, 150, 200 }; 
@@ -2728,6 +2730,16 @@ const int semi_open_file_score = 10;
 
 // open file score
 const int open_file_score = 15;
+
+// mobility units (values from engine Fruit reloaded)
+static const int bishop_unit = 4;
+static const int queen_unit = 9;
+
+// mobility bonuses (values from engine Fruit reloaded)
+static const int bishop_mobility_opening = 5;
+static const int bishop_mobility_endgame = 5;
+static const int queen_mobility_opening = 1;
+static const int queen_mobility_endgame = 2;
 
 // king's shield bonus
 const int king_shield_bonus = 5;
@@ -2942,6 +2954,28 @@ static inline int evaluate() {
                     score_opening += positional_score[opening][PAWN][square];
                     score_endgame += positional_score[endgame][PAWN][square];
 
+                    // double pawn penalty
+                    double_pawns = count_bits(bitboards[P] & file_masks[square]);
+                    
+                    // on double pawns (tripple, etc)
+                    if (double_pawns > 1) {
+                        score_opening += (double_pawns - 1) * double_pawn_penalty_opening;
+                        score_endgame += (double_pawns - 1) * double_pawn_penalty_endgame;
+                    }
+                    
+                    // on isolated pawn
+                    if ((bitboards[P] & isolated_masks[square]) == 0) {
+                        // give an isolated pawn penalty
+                        score_opening += isolated_pawn_penalty_opening;
+                        score_endgame += isolated_pawn_penalty_endgame;
+                    }
+                    // on passed pawn
+                    if ((white_passed_masks[square] & bitboards[p]) == 0) {
+                        // give passed pawn bonus
+                        score_opening += passed_pawn_bonus[get_rank[square]];
+                        score_endgame += passed_pawn_bonus[get_rank[square]];
+                    }
+                    
                     break;
                 
                 // evaluate white knights
@@ -2958,6 +2992,9 @@ static inline int evaluate() {
                     score_opening += positional_score[opening][BISHOP][square];
                     score_endgame += positional_score[endgame][BISHOP][square];
                     
+                    // mobility
+                    score_opening += (count_bits(get_bishop_attacks(square, occupancies[both])) - bishop_unit) * bishop_mobility_opening;
+                    score_endgame += (count_bits(get_bishop_attacks(square, occupancies[both])) - bishop_unit) * bishop_mobility_endgame;                    
                     break;
                 
                 // evaluate white rooks
@@ -2965,6 +3002,20 @@ static inline int evaluate() {
                     // get opening/endgame positional score
                     score_opening += positional_score[opening][ROOK][square];
                     score_endgame += positional_score[endgame][ROOK][square];
+                    
+                    // semi open file
+                    if ((bitboards[P] & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score_opening += semi_open_file_score;
+                        score_endgame += semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add open file bonus
+                        score_opening += open_file_score;
+                        score_endgame += open_file_score;
+                    }
                     
                     break;
                 
@@ -2974,6 +3025,9 @@ static inline int evaluate() {
                     score_opening += positional_score[opening][QUEEN][square];
                     score_endgame += positional_score[endgame][QUEEN][square];
                     
+                    // mobility
+                    score_opening += (count_bits(get_queen_attacks(square, occupancies[both])) - queen_unit) * queen_mobility_opening;
+                    score_endgame += (count_bits(get_queen_attacks(square, occupancies[both])) - queen_unit) * queen_mobility_endgame;                    
                     break;
                 
                 // evaluate white king
@@ -2982,6 +3036,24 @@ static inline int evaluate() {
                     score_opening += positional_score[opening][KING][square];
                     score_endgame += positional_score[endgame][KING][square];
                     
+                    // semi open file
+                    if ((bitboards[P] & file_masks[square]) == 0) {
+                        // add semi open file penalty
+                        score_opening -= semi_open_file_score;
+                        score_endgame -= semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add open file penalty
+                        score_opening -= open_file_score;
+                        score_endgame -= open_file_score;
+                    }
+                    
+                    // king safety bonus
+                    score_opening += count_bits(king_attacks[square] & occupancies[white]) * king_shield_bonus;
+                    score_endgame += count_bits(king_attacks[square] & occupancies[white]) * king_shield_bonus;
+                    
                     break;
 
                 // evaluate black pawns
@@ -2989,6 +3061,28 @@ static inline int evaluate() {
                     // get opening/endgame positional score
                     score_opening -= positional_score[opening][PAWN][mirror_score[square]];
                     score_endgame -= positional_score[endgame][PAWN][mirror_score[square]];
+                    
+                    // double pawn penalty
+                    double_pawns = count_bits(bitboards[p] & file_masks[square]);
+                    
+                    // on double pawns (tripple, etc)
+                    if (double_pawns > 1) {
+                        score_opening -= (double_pawns - 1) * double_pawn_penalty_opening;
+                        score_endgame -= (double_pawns - 1) * double_pawn_penalty_endgame;
+                    }
+                    
+                    // on isolated pawn
+                    if ((bitboards[p] & isolated_masks[square]) == 0) {
+                        // give an isolated pawn penalty
+                        score_opening -= isolated_pawn_penalty_opening;
+                        score_endgame -= isolated_pawn_penalty_endgame;
+                    }
+                    // on passed pawn
+                    if ((black_passed_masks[square] & bitboards[P]) == 0) {
+                        // give passed pawn bonus
+                        score_opening -= passed_pawn_bonus[get_rank[square]];
+                        score_endgame -= passed_pawn_bonus[get_rank[square]];
+                    }
                     
                     break;
                 
@@ -3006,6 +3100,9 @@ static inline int evaluate() {
                     score_opening -= positional_score[opening][BISHOP][mirror_score[square]];
                     score_endgame -= positional_score[endgame][BISHOP][mirror_score[square]];
                     
+                    // mobility
+                    score_opening -= (count_bits(get_bishop_attacks(square, occupancies[both])) - bishop_unit) * bishop_mobility_opening;
+                    score_endgame -= (count_bits(get_bishop_attacks(square, occupancies[both])) - bishop_unit) * bishop_mobility_endgame;                    
                     break;
                 
                 // evaluate black rooks
@@ -3013,7 +3110,21 @@ static inline int evaluate() {
                     // get opening/endgame positional score
                     score_opening -= positional_score[opening][ROOK][mirror_score[square]];
                     score_endgame -= positional_score[endgame][ROOK][mirror_score[square]];
-
+                    
+                    // semi open file
+                    if ((bitboards[p] & file_masks[square]) == 0) {
+                        // add semi open file bonus
+                        score_opening -= semi_open_file_score;
+                        score_endgame -= semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // add open file bonus
+                        score_opening -= open_file_score;
+                        score_endgame -= open_file_score;
+                    }
+                    
                     break;
                 
                 // evaluate black queens
@@ -3021,7 +3132,10 @@ static inline int evaluate() {
                     // get opening/endgame positional score
                     score_opening -= positional_score[opening][QUEEN][mirror_score[square]];
                     score_endgame -= positional_score[endgame][QUEEN][mirror_score[square]];
-
+                    
+                    // mobility
+                    score_opening -= (count_bits(get_queen_attacks(square, occupancies[both])) - queen_unit) * queen_mobility_opening;
+                    score_endgame -= (count_bits(get_queen_attacks(square, occupancies[both])) - queen_unit) * queen_mobility_endgame;                    
                     break;
                 
                 // evaluate black king
@@ -3029,7 +3143,24 @@ static inline int evaluate() {
                     // get opening/endgame positional score
                     score_opening -= positional_score[opening][KING][mirror_score[square]];
                     score_endgame -= positional_score[endgame][KING][mirror_score[square]];
-
+                    
+                    // semi open file
+                    if ((bitboards[p] & file_masks[square]) == 0) {
+                        // add semi open file penalty
+                        score_opening += semi_open_file_score;
+                        score_endgame += semi_open_file_score;
+                    }
+                    
+                    // open file
+                    if (((bitboards[P] | bitboards[p]) & file_masks[square]) == 0) {
+                        // semi open file penalty
+                        score_opening += open_file_score;
+                        score_endgame += open_file_score;
+                    }
+                    
+                    // king safety bonus
+                    score_opening -= count_bits(king_attacks[square] & occupancies[black]) * king_shield_bonus;
+                    score_endgame -= count_bits(king_attacks[square] & occupancies[black]) * king_shield_bonus;
                     break;
             }
 
@@ -3062,7 +3193,7 @@ static inline int evaluate() {
         // return pure opening score in opening
         score = score_opening;
     } else if (game_phase == endgame) {
-        // return pure endgame score in engame
+        // return pure endgame score in endgame
         score = score_endgame;
     }
     
@@ -3559,6 +3690,9 @@ const int reduction_limit = 3;
 
 // negamax alpha beta search
 static inline int negamax(int alpha, int beta, int depth) {
+    // init PV length
+    pv_length[ply] = ply;
+
     // variable to store current move's score (from the static evaluation perspective)
     int score;
     
@@ -3589,9 +3723,6 @@ static inline int negamax(int alpha, int beta, int depth) {
         // "listen" to the GUI/user input
 		communicate();
     }
-
-    // init PV length
-    pv_length[ply] = ply;
 
     // recursion escapre condition
     if (depth == 0) {
@@ -4182,6 +4313,11 @@ void parse_go(char *command) {
         }
 
         stoptime = starttime + uci_time + inc;
+
+        // treat increment as seconds per move when time is almost up
+        if (time < 1500 && inc && depth == 64) {
+            stoptime = starttime + inc - 50;
+        }
     }
 
     // if depth is not available
